@@ -1,0 +1,15 @@
+{
+  "name": "The Castle Ruins",
+  "style": "castle",
+  "map_structure": [
+    "...U..U..",
+    "U..M...U.",
+    "...U.B.U.",
+    "..U...D..",
+    "S..U..U.P",
+    "..U......",
+    ".U...U..C",
+    "......U..",
+    "...U..F.U"
+  ]
+}

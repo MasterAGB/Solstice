@@ -1,0 +1,13 @@
+{
+  "name": "Whispering Woods",
+  "style": "forest",
+  "map_structure": [
+    "HHHHHGH",
+    "H.....H",
+    "H.....H",
+    "H.....H",
+    "H.....H",
+    "H.....H",
+    "HHSHHHH"
+  ]
+}

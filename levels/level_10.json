@@ -1,0 +1,13 @@
+{
+    "name": "The Enchanted Forest",
+    "style": "forest",
+    "map_structure": [
+        ".U.C.U.",
+        ".U.M.U.",
+        ".U.M.U.",
+        ".U.K.U.",
+        ".U.M.U.",
+        ".U.M.U.",
+        "S......"
+    ]
+}

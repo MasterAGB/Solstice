@@ -1,0 +1,15 @@
+{
+  "name": "The Whispering Woods",
+  "style": "forest",
+  "map_structure": [
+    ".....C...",
+    ".U...M.U.",
+    "..U....U.",
+    "U...B...U",
+    "...D.S..P",
+    "U.......U",
+    "..U.F.U..",
+    ".U.....U.",
+    "....U...."
+  ]
+}
