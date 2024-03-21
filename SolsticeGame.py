@@ -2,7 +2,7 @@ import json
 import random
 import pygame
 import torch
-
+import matplotlib.pyplot as plt
 
 class SolsticeGame:
     # Define each tile type's index in the channel dimension
@@ -168,7 +168,7 @@ class SolsticeGame:
 
         return self.state, state_tensor, reward, is_terminated, is_truncated, info
 
-    def generate_multi_channel_state(self):
+    def generate_multi_channel_state(self, generateImages = False):
         # Normalize the indices to be continuous starting from 0
         normalized_channel_indices = self.used_channel_indices
 
@@ -194,7 +194,81 @@ class SolsticeGame:
         # IMPORTANT: Verify the last channel is correctly assigned for the player's position.
         state_tensor[num_channels - 1, player_row, player_col] = 1  # Use num_channels - 1 instead of -1
 
+        if generateImages:
+            symbol_descriptions = {
+                '.': 'Free Space',
+                'H': 'Hole',
+                'G': 'Goal',
+                'K': 'Key',
+                'C': 'Closed Goal',
+                'F': 'Monster with Key Drop',
+                'U': 'Unstable Floor',
+                'B': 'Bomb',
+                'W': 'Wall',
+                'S': 'Start',
+                # Add more symbols as needed
+            }
+
+            i=0
+            # Generate and save BW images for each channel
+            for channel, index in normalized_channel_indices.items():
+                i+=1;
+                plt.figure(figsize=(2, 2))
+                plt.imshow(state_tensor[index].cpu().numpy(), cmap='gray', interpolation='none')
+                title = f'Ch {index}: {symbol_descriptions[channel]}'  # Use channel symbol as title
+                plt.title(title)
+                plt.axis('off')
+                plt.savefig(f'channels/channel_{index}_{channel}.png')
+                plt.close()
+                #plt.show()
+
+                self.DrawChannelImage(f'channels/channel_{index}_{channel}.png',i,num_channels);
+
+            i+=1;
+            # Generate and show the player position separately if needed
+            plt.figure(figsize=(2, 2))
+            plt.imshow(state_tensor[num_channels - 1].cpu().numpy(), cmap='gray', interpolation='none')
+            plt.title(f'Ch {num_channels - 1}: Player Position')
+            plt.axis('off')
+            plt.savefig(f'channels/channel_{num_channels - 1}_player_position.png')
+            #plt.show()
+            plt.close()
+            self.DrawChannelImage(f'channels/channel_{num_channels - 1}_player_position.png', i,num_channels);
+
+
         return state_tensor.to(self.device)
+
+    def DrawChannelImage(self, image_path, index, total_images):
+        global win, win_size
+        # Assume the display dimensions
+        display_width, display_height = win_size
+
+        # Calculate grid position based on index
+        grid_cols = 3  # Number of columns in the grid
+        grid_rows = 4  # Number of rows in the grid
+        grid_width = display_width // grid_cols
+        grid_height = display_height // grid_rows
+
+        col = (index - 1) % grid_cols
+        row = (index - 1) // grid_cols
+
+        x = col * grid_width
+        y = row * grid_height
+
+        # Load the image
+        try:
+            image = pygame.image.load(image_path)
+            image = pygame.transform.scale(image, (grid_width, grid_height))  # Scale image to fit grid
+        except pygame.error as e:
+            print(f"Unable to load image: {image_path}. Error: {e}")
+            return
+
+        # Blit image at calculated position
+        win.blit(image, (x, y))
+
+        # If it's the last image in the current batch, update the display and wait for a key press
+        if index % (grid_cols * grid_rows) == 0 or index == total_images:
+            pygame.display.flip()
 
     def replaceThisCell(self, row, col, new_type):
         """
@@ -250,8 +324,8 @@ class SolsticeGame:
     def reset(self):
         self.SetupLevel(self.level_index)
         self.render();
-
-        return self.state, {}
+        state_tensor = self.generate_multi_channel_state()
+        return self.state, state_tensor, {}
 
     def render(self):
         global win, win_size
@@ -392,11 +466,11 @@ class SolsticeGame:
         pygame.display.flip()
         clock.tick(10)  # Cap the frame rate
 
-    def draw_text_with_gradient(self, text, position, top_color, bottom_color):
+    def draw_text_with_gradient(self, text, position, top_color, bottom_color, font_size = 18):
         global win, win_size
 
         font_path = "font/solstice-nes.ttf"
-        font_size = 18
+
 
         # Load the custom font
         font = pygame.font.Font(font_path, font_size)
@@ -528,16 +602,17 @@ class SolsticeGame:
     def SetFooter(self):
 
         self.draw_text_with_gradient(
-            "=Train e=Xpert =Eval =Reset =Next =Prev =Skin", (8, 714),
+            "=Train e=Xpert =Eval =Reset =Next =Prev =Channels", (8, 714),
             (231, 255, 165),
-            (0, 150, 0))
+            (0, 150, 0), 16)
 
     def SetupLevel(self, level_index):
         self.level_index = level_index;
         self.map_layout = self.load_map_layout(self.level_index)
-        self.level_size = len(self.map_layout) * len(self.map_layout[0])
         self.used_channel_indices = self.GetUsedChannelIndexes()
         self.level_channels_count = len(self.used_channel_indices) + 1  # adding plus one for the player position on map.
+
+        self.level_size_for_hidden_layer = len(self.map_layout) * len(self.map_layout[0])*self.level_channels_count;
         self.level_height = len(self.map_layout)
         self.level_width = len(self.map_layout[0])
 
@@ -574,11 +649,11 @@ class SolsticeGame:
                     used_tiles.add(cell)
 
         # Ensure certain conditions are met
-        if 'B' in used_tiles:
+        if 'B' in used_tiles and 'K' not in used_tiles:
             used_tiles.add('K')  # Add 'K' if 'B' is present
-        if 'C' in used_tiles:
+        if 'C' in used_tiles and 'G' not in used_tiles:
             used_tiles.add('G')  # Add 'G' if 'C' is present
-        if 'U' in used_tiles:
+        if 'U' in used_tiles and 'H' not in used_tiles:
             used_tiles.add('H')  # Add 'H' if 'U' is present
 
         # Ensure free space ('.') is always added
@@ -590,5 +665,10 @@ class SolsticeGame:
         # Normalize the channel indices to be continuous starting from 0
         normalized_channel_indices = {key: i for i, key in enumerate(used_channel_indices)}
 
-        return normalized_channel_indices
+        # Sort the tiles based on some criterion, here alphabetically
+        sorted_tiles = sorted(normalized_channel_indices)
+
+        # Assign sorted indices
+        sorted_channel_indices = {tile: index for index, tile in enumerate(sorted_tiles)}
+        return sorted_channel_indices
 

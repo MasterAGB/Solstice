@@ -10,17 +10,15 @@ import pygame
 
 from SolsticeGame import SolsticeGame
 
-
 # Check if CUDA (GPU support) is available and set device accordingly
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = torch.device("cpu")
+# device = torch.device("cpu")
 print(f"Using device: {device}")
-if(torch.cuda.is_available()):
+if (torch.cuda.is_available()):
     print(torch.cuda.is_available())  # Should return True if CUDA is properly set up
     print(torch.cuda.current_device())  # Shows the current CUDA device ID
     print(torch.cuda.device_count())  # Shows the number of available CUDA devices
     print(torch.cuda.get_device_name(0))  # Shows the name of the CUDA device, change 0 accordingly if multiple GPUs
-
 
 
 class DQN(nn.Module):
@@ -36,7 +34,7 @@ class DQN(nn.Module):
 
     def forward(self, x):
         # Ensure x is properly flattened
-        #TODO: only if multi
+        # TODO: only if multi
         x = x.view(-1, self.flattened_size)
         x = F.relu(self.fc1(x))  # Apply rectified linear unit (ReLU) activation
         x = self.out(x)  # Calculate output
@@ -71,23 +69,28 @@ class SolsticeDQL:
 
     optimizer = None  # NN Optimizer. Initialize later.
 
-
     # Train the Solstice environment
     def train(self, game: SolsticeGame, episodes):
 
         epsilon = 1  # 1 = 100% random actions
-        memory = ReplayMemory(int(max(self.replay_memory_size,episodes))) #Size is 1000
+        memory = ReplayMemory(int(max(self.replay_memory_size, episodes)))  # Size is 1000
 
         if self.expert_gameplay_enabled and self.expert_gameplay:
-            game.RenderScreen("Expert train! " + str(
-                len(self.expert_gameplay)) + f"\nTrain in progress  with {game.level_channels_count} ch\n" + f"Train device {device}\n" + str(
+            game.RenderScreen("Expert train! =" + str(
+                len(self.expert_gameplay)) + " steps" + f"\nTrain in progress  with {game.level_channels_count} ch\n" + f"Train device {device}\n" + str(
                 episodes) + " episodes", "evil")
         else:
-            game.RenderScreen(f"Train in progress with {game.level_channels_count} ch\n" + f"Train device {device}\n" + str(episodes) + " episodes", "evil")
+            game.RenderScreen(
+                f"Train in progress with {game.level_channels_count} ch\n" + f"Train device {device}\n" + str(
+                    episodes) + " episodes", "evil")
 
         # Create policy and target network.
-        policy_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height, map_width=game.level_width, h1_nodes=game.level_size, out_actions=game.action_size).to(device)
-        target_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height, map_width=game.level_width, h1_nodes=game.level_size, out_actions=game.action_size).to(device)
+        policy_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height,
+                         map_width=game.level_width, h1_nodes=game.level_size_for_hidden_layer,
+                         out_actions=game.action_size).to(device)
+        target_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height,
+                         map_width=game.level_width, h1_nodes=game.level_size_for_hidden_layer,
+                         out_actions=game.action_size).to(device)
 
         # Make the target and policy networks the same (copy weights/biases from one network to the other)
         target_dqn.load_state_dict(policy_dqn.state_dict())
@@ -115,13 +118,11 @@ class SolsticeDQL:
             is_terminated = False  # True when agent dies or reached goal
             is_truncated = False  # True when agent takes more than X actions
             cumulative_reward = 0
-            state = game.reset()[0]  # Initialize to start state
-            state_tensor = game.generate_multi_channel_state()  # Get the current state in tensor form
+            state, state_tensor, info = game.reset()
 
-            current_expert_episode_steps=[];
+            current_expert_episode_steps = [];
             if self.expert_gameplay_enabled and self.expert_gameplay:
-                current_expert_episode_steps = self.expert_gameplay.pop(0); #Here is stored first episode steps
-
+                current_expert_episode_steps = self.expert_gameplay.pop(0);  # Here is stored first episode steps
 
             # Agent navigates map until it dies/reaches goal (terminated), or has taken 200 actions (truncated).
             while (not is_terminated and not is_truncated):
@@ -131,7 +132,8 @@ class SolsticeDQL:
                     transition = current_expert_episode_steps.pop(0)  # Get and remove the first element
                     state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated = transition
 
-                    print(f"Processing expert transition with reward {reward} - Terminated {is_terminated}. Expert transitions left: {len(current_expert_episode_steps)}")
+                    print(
+                        f"Processing expert transition with reward {reward} - Terminated {is_terminated}. Expert transitions left: {len(current_expert_episode_steps)}")
 
                 else:
 
@@ -142,18 +144,16 @@ class SolsticeDQL:
                     else:
                         # select best action
                         with torch.no_grad():
-                            dqn_input = self.state_to_dqn_input(state, state_tensor, game.level_size)
+                            dqn_input = self.state_to_dqn_input(state, state_tensor, game.level_channels_count)
                             action_values = policy_dqn(dqn_input)
                             action = action_values.argmax().item()
 
                     # Execute action
                     new_state, new_state_tensor, reward, is_terminated, is_truncated, _ = game.step(action)
 
-
-
                 cumulative_reward += reward  # Update at each step within the while loop
 
-                #print(f"Adding state_tensor with shape {state_tensor.shape} to memory")
+                # print(f"Adding state_tensor with shape {state_tensor.shape} to memory. Level: {game.level_index}")
                 # Save experience into memory
                 memory.append((state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated))
 
@@ -171,7 +171,7 @@ class SolsticeDQL:
 
             # Check if enough experience has been collected and if at least 1 reward has been collected
             if len(memory) > self.mini_batch_size and np.sum(rewards_per_episode) > 0:
-                #print("Enought expiriance has been collected for optimization! - Memory "+str(len(memory)))
+                # print("Enought expiriance has been collected for optimization! - Memory "+str(len(memory)))
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
 
@@ -185,14 +185,12 @@ class SolsticeDQL:
                     step_count = 0
 
         # Save policy
-        torch.save(policy_dqn.state_dict(), "solstice_dql_" + str(game.level_index) + ".pt")
+        torch.save(policy_dqn.state_dict(), "dql/solstice_dql_" + str(game.level_index) + ".pt")
 
         game.RenderScreen("Train completed!\n" + str(episodes) + " episodes", "wizard")
 
-
-
         # Create new graph
-        #TODO: i need to reset this plt here, so its not showing later more graphs on the same
+        # TODO: i need to reset this plt here, so its not showing later more graphs on the same
         plt.figure(1)
 
         # Plot average rewards (Y-axis) vs episodes (X-axis)
@@ -207,11 +205,14 @@ class SolsticeDQL:
         plt.plot(epsilon_history)
 
         # Save plots
-        plt.savefig("solstice_dql_" + str(game.level_index) + ".png")
+        plt.savefig("dql/solstice_dql_" + str(game.level_index) + ".png")
 
         plt.show()
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
+        if len(set([s[1].shape for s in mini_batch])) > 1:
+            print("Warning: Inconsistent state tensor sizes in mini-batch.")
+
         # Extract experiences
         state_tensors = torch.stack([s[1] for s in mini_batch])
         actions = torch.tensor([s[2] for s in mini_batch], dtype=torch.int64).view(-1, 1)
@@ -302,7 +303,7 @@ class SolsticeDQL:
         # TODO: this is needed for multiple channels
         return state_tensor.unsqueeze(0);
 
-        #this was single channel stuff
+        # this was single channel stuff
 
         input_tensor = torch.zeros(num_states)
         input_tensor[state] = 1
@@ -311,8 +312,10 @@ class SolsticeDQL:
     # Run the Solstice game with the learned policy
     def test(self, game: SolsticeGame, episodes):
         # Load learned policy
-        policy_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height, map_width=game.level_width, h1_nodes=game.level_size, out_actions=game.action_size).to(device)
-        policy_dqn.load_state_dict(torch.load("solstice_dql_" + str(game.level_index) + ".pt", map_location=device))
+        policy_dqn = DQN(in_channels=game.level_channels_count, map_height=game.level_height,
+                         map_width=game.level_width, h1_nodes=game.level_size_for_hidden_layer,
+                         out_actions=game.action_size).to(device)
+        policy_dqn.load_state_dict(torch.load("dql/solstice_dql_" + str(game.level_index) + ".pt", map_location=device))
         policy_dqn.eval()  # switch model to evaluation mode
 
         print('Policy (trained):')
@@ -321,33 +324,47 @@ class SolsticeDQL:
 
         for i in range(episodes):
             game.SetTitle("Test episode {}/{}".format(i + 1, episodes))
-            state = game.reset()[0]  # Initialize to state 0
-            state_tensor = game.generate_multi_channel_state()
+            state, state_tensor, info = game.reset()  # Initialize
             is_terminated = False  # True when agent falls in hole or reached goal
             is_truncated = False  # True when agent takes more than 200 actions
 
             # Agent navigates map until it dies (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
             while (not is_terminated and not is_truncated):
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        is_terminated = True  # To ensure the game will also close if the window's close button is clicked
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            is_terminated = True  # Break out of the loop when Escape is pressed
+                            break  # Exit the for loop immediately
+
+                    # Exit the while loop if is_terminated has been set to True
+                if is_terminated:
+                    break
 
                 # Select best action
                 with torch.no_grad():
-                    dqn_input = self.state_to_dqn_input(state, state_tensor, game.level_size)
+                    dqn_input = self.state_to_dqn_input(state, state_tensor, game.level_channels_count)
                     action_values = policy_dqn(dqn_input)
                     action = action_values.argmax().item()
 
                 # Execute action
                 state, state_tensor, reward, is_terminated, is_truncated, _ = game.step(action)
 
-
-    #expert gameplay data
+    # expert gameplay data
     expert_gameplay = []
     expert_gameplay_enabled = False
     expert_gameplay_current_episode = 0
 
+    def prepareNewLevel(self):
+        memory = ReplayMemory(self.replay_memory_size)  # Size is 1000
+        print("Resetting memory with new level " + str(game.level_index));
+
     def play(self, game: SolsticeGame):
 
         game.SetTitle("Play the game")
-        game.reset()
+        state, state_tensor, info = game.reset()
+        self.prepareNewLevel()
 
         disable_display_for_training = True
         training_episodes = 512  # Default value
@@ -367,16 +384,14 @@ class SolsticeDQL:
             pygame.K_x: 'expert',
             pygame.K_n: 'next',
             pygame.K_p: 'prev',
+            pygame.K_c: 'channels',
             pygame.K_PLUS: 'plus',
             pygame.K_EQUALS: 'plus',
             pygame.K_MINUS: 'minus',
             pygame.K_h: 'toggle_display',
         }
 
-        state, info = game.reset()
-        state_tensor = game.generate_multi_channel_state()
         is_terminated = False
-
 
         while not is_terminated:
             for event in pygame.event.get():
@@ -387,7 +402,8 @@ class SolsticeDQL:
                         if action_mapping[event.key] == 'reset':
                             # Regenerate the map and reset position
                             game.map_layout = game.generate_solvable_map(8, 8)
-                            state, info = game.reset()
+                            state, state_tensor, info = game.reset()
+                            self.prepareNewLevel();
                             print("Map regenerated and position reset.")
                         elif action_mapping[event.key] == 'skin':
                             game.skin = random.choice(game.skins)
@@ -395,20 +411,26 @@ class SolsticeDQL:
                             print(f"Skin changed to {game.skin}.")
                         elif action_mapping[event.key] == 'next':
                             print("Next level loading");
-                            game.NextLevel();
+                            state, state_tensor, info = game.NextLevel();
                             game.render()
+                            self.prepareNewLevel();
                             print(f"Skin changed to {game.skin}.")
                         elif action_mapping[event.key] == 'prev':
                             print("Prev level loading");
-                            game.PrevLevel();
+                            state, state_tensor, info = game.PrevLevel();
                             game.render()
+                            self.prepareNewLevel();
                             print(f"Skin changed to {game.skin}.")
+                        elif action_mapping[event.key] == 'channels':
+                            game.generate_multi_channel_state(True)
+                            print(f"Displaying channels")
                         elif action_mapping[event.key] == 'toggle_display':
                             disable_display_for_training = not disable_display_for_training;
                             print(f"Hidden training changed to {disable_display_for_training}.")
                             game.RenderScreen(f"Hidden training changed to {disable_display_for_training}.", "wizard")
                         elif action_mapping[event.key] == 'train':
-                            if(disable_display_for_training):
+                            self.prepareNewLevel();
+                            if (disable_display_for_training):
                                 game.DisableDisplay()
                             solsticeDQL.train(game, training_episodes)
                             game.EnableDisplay()
@@ -421,17 +443,18 @@ class SolsticeDQL:
                             game.RenderScreen(f"Training episodes set to {training_episodes}.", "wizard")
                         elif action_mapping[event.key] == 'minus':  # Decrease episodes
                             training_episodes /= 2
-                            training_episodes=int(max(2,training_episodes))
+                            training_episodes = int(max(2, training_episodes))
                             print(f"Training episodes set to {training_episodes}.")
                             game.RenderScreen(f"Training episodes set to {training_episodes}.", "evil")
                         elif action_mapping[event.key] == 'test':
+                            self.prepareNewLevel();
                             print(f"Start testing")
                             solsticeDQL.test(game, 1)
                             print(f"Testing the game completed.")
                             game.RenderScreen(f"Test completed.", "wizard")
                         elif action_mapping[event.key] == 'expert':
-                            #Toggling the expert session - if i disable it - im just dropping all the data.. this is not the place, where i save something, this is just a toggle.
-                            if(self.expert_gameplay_enabled):
+                            # Toggling the expert session - if i disable it - im just dropping all the data.. this is not the place, where i save something, this is just a toggle.
+                            if (self.expert_gameplay_enabled):
                                 self.expert_gameplay_enabled = False
                                 self.expert_gameplay_current_episode = 0
                                 self.expert_gameplay = []
@@ -442,12 +465,12 @@ class SolsticeDQL:
                                 self.expert_gameplay_current_episode = 0
                                 # resetting the expert gameplay data
                                 self.expert_gameplay = []
-                                game.reset();
+                                state, state_tensor, info = game.reset();
+                                self.prepareNewLevel();
                                 print(f"Starting the expert gameplay session.")
                                 game.RenderScreen(f"Starting the expert gameplay\nsession with =4 episodes", "wizard")
                         else:
                             action = action_mapping[event.key]
-
 
                             # Execute the chosen action and record the result
                             new_state, new_state_tensor, reward, is_terminated, is_truncated, _ = game.step(action)
@@ -455,24 +478,30 @@ class SolsticeDQL:
                             if len(self.expert_gameplay) <= self.expert_gameplay_current_episode:
                                 self.expert_gameplay.append([])  # Initialize new episode
 
-                            self.expert_gameplay[self.expert_gameplay_current_episode].append((state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated))
+                            properList = (
+                                state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated)
+
+                            print(
+                                f"Adding state_tensor with shape {state_tensor.shape} >> {new_state_tensor.shape} to expert_gameplay memory. Level: {game.level_index}")
+
+                            self.expert_gameplay[self.expert_gameplay_current_episode].append(properList)
 
                             state = new_state
                             state_tensor = new_state_tensor
-
 
                             print(
                                 f"Action: {['Left', 'Down', 'Right', 'Up'][action]}, New State: {new_state}, Reward: {reward}")
                             if is_terminated:
 
                                 if (self.expert_gameplay_enabled):
-                                    self.expert_gameplay_current_episode+=1;
-                                    print("Expert training completed. "+str(self.expert_gameplay_current_episode)+" from 4")
+                                    self.expert_gameplay_current_episode += 1;
+                                    print("Expert training completed. " + str(
+                                        self.expert_gameplay_current_episode) + " from 4")
 
                                 if (self.expert_gameplay_enabled):
-                                    if(self.expert_gameplay_current_episode>=4):
-
-                                        print(f"Training the game with expert gameplay lenght.{len(self.expert_gameplay)}")
+                                    if (self.expert_gameplay_current_episode >= 4):
+                                        print(
+                                            f"Training the game with expert gameplay lenght.{len(self.expert_gameplay)}")
                                         # TODO - something about the expert gameplay if i won - maybe start training with expertgameplay data?
                                         if (disable_display_for_training):
                                             game.DisableDisplay()
@@ -485,19 +514,21 @@ class SolsticeDQL:
                                         self.expert_gameplay = []
                                         print("Continue ordinary gameplay after expert training")
                                         is_terminated = False
-                                        state, info = game.reset();
+                                        state, state_tensor, info = game.reset();
                                     else:
                                         is_terminated = False
                                         print("Continue expert gameplay")
-                                        state, info = game.reset();
+                                        state, state_tensor, info = game.reset();
 
                                 else:
                                     if reward >= 1:
-                                        state, info = game.Won();
+                                        state, state_tensor, info = game.Won();
                                         is_terminated = False
+                                        self.prepareNewLevel();
                                     else:
-                                        state, info = game.Lost();
+                                        state, state_tensor, info = game.Lost();
                                         is_terminated = False
+                                        self.prepareNewLevel();
 
     def print_dqn(self, dqn, state_tensor):
         """
@@ -543,8 +574,8 @@ class SolsticeDQL:
             if (s + 1) % 4 == 0:
                 print()  # Print a newline every 4 states
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 if __name__ == '__main__':
     solsticeDQL = SolsticeDQL()
