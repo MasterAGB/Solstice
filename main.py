@@ -413,7 +413,7 @@ class SolsticeDQL:
                             solsticeDQL.train(game, training_episodes)
                             game.EnableDisplay()
                             print(f"Training finished.")
-                            game.RenderScreen(f"Training finished! Reset the level.", "wizard")
+                            game.RenderScreen(f"Training finished!\nReset the level.", "wizard")
                         elif action_mapping[event.key] == 'plus':  # Increase episodes
                             training_episodes *= 2
                             training_episodes = int(training_episodes)
