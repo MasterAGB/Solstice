@@ -1,15 +1,15 @@
 {
-  "name": "Final battle",
+  "name": "Duel of Fates in the Verdant Wild",
   "style": "last",
   "map_structure": [
-    "HHHHHHCHH",
-    "..UMHHMHH",
-    ".UFUHHUHH",
-    ".MU.HHUHH",
-    "....HHUHH",
-    "B...HHUHH",
-    "....HH.HH",
-    "........H",
+    "......C..",
+    ".MUM.....",
+    ".UFU.....",
+    ".MUM.....",
+    ".........",
+    "B........",
+    ".........",
+    ".........",
     "...S....."
   ]
 }

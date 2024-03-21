@@ -1,11 +1,16 @@
 {
-    "name": "Blizzard Blitz",
+    "name": "The Frostbound Gauntlet",
     "style": "castle",
     "map_structure": [
         "S...",
         ".H.H",
+        "...P",
         "....",
+        "H.D.",
+        "..HD",
+        ".D..",
         "....",
+        "...D",
         "H...",
         "...G"
     ]
