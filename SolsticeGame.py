@@ -145,9 +145,12 @@ class SolsticeGame:
         elif cell == 'M':
             is_terminated = True
         elif cell == 'D':
-            self.is_dizzy = True
+            if(self.has_antidot == False):
+                self.is_dizzy = True
             self.replaceThisCell(row, col, ".")
         elif cell == 'P':
+            reward = 0.3
+            self.has_antidot = True
             self.is_dizzy = False
             self.replaceThisCell(row, col, ".")
         elif cell == 'K':
@@ -455,6 +458,8 @@ class SolsticeGame:
 
         descr = "Level " + str(self.level_index) + "  " + str(current_col) + "x" + str(current_row) + "\n";
         descr += "Steps " + str(self.step_count) + "\n";
+        if (self.has_antidot):
+            descr += "Has antidot!\n";
         if (self.is_dizzy):
             descr += "Poisoned!\n";
 
@@ -620,6 +625,7 @@ class SolsticeGame:
         self.done = False
         self.step_count = 0
         self.is_dizzy = False
+        self.has_antidot = False
 
     def GetUsedChannelIndexes(self):
         valuable_channel_indices = {
