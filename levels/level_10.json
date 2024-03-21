@@ -1,13 +1,15 @@
 {
-    "name": "The Enchanted Forest",
-    "style": "forest",
-    "map_structure": [
-        ".U.C.U.",
-        ".U.M.U.",
-        ".U.M.U.",
-        ".U.K.U.",
-        ".U.M.U.",
-        ".U.M.U.",
-        "S......"
-    ]
+  "name": "Final battle",
+  "style": "last",
+  "map_structure": [
+    "HHHHHHCHH",
+    "..UMHHMHH",
+    ".UFUHHUHH",
+    ".MU.HHUHH",
+    "....HHUHH",
+    "B...HHUHH",
+    "....HH.HH",
+    "........H",
+    "...S....."
+  ]
 }

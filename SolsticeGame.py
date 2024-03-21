@@ -13,7 +13,7 @@ class SolsticeGame:
 
         self.device = device
         self.level_name = None
-        self.skins = ['default', 'portal', 'bombs', 'forest', 'ice', 'castle']
+        self.skins = ['default', 'portal', 'bombs', 'forest', 'ice', 'castle', 'last']
 
         self.skin = game_skin
         self.last_action = None
@@ -503,7 +503,6 @@ class SolsticeGame:
 
     def Won(self):
         print("Congratulations, you've reached the goal!")
-        self.level_index = self.level_index + 1;
         return self.NextLevel()
 
     def Lost(self):
