@@ -1,11 +1,11 @@
 {
-    "name": "Whispering Woods",
-    "style": "forest",
+    "name": "Hidden castle",
+    "style": "default",
     "map_structure": [
         "HHHHHHCHH",
-        "H.MMH...H",
-        "HMKFU...H",
-        "HMM.H...H",
+        "H.MM....H",
+        "HMKF....H",
+        "HMM.....H",
         "HHUHHHUHH",
         "H...H...H",
         "H.B.U...H",

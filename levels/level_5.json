@@ -1,15 +1,15 @@
 {
-  "name": "Whispering Woods",
-  "style": "forest",
+  "name": "Whispering Bombs",
+  "style": "bombs",
   "map_structure": [
-    "....C....",
-    ".........",
-    "HHHH.HHHH",
-    "HHHH.HHHH",
-    "HHHD.PHHH",
-    "HHHH.HHHH",
-    "HHHH.HHHH",
-    ".........",
-    "S.......K"
+    "U.U.C.U.U",
+    ".U.U.U.U.",
+    "U.U.U.U.U",
+    ".U.U.U.U.",
+    "U.U.U.U.U",
+    ".U.UKU.U.",
+    "U.U.U.U.U",
+    ".U.U.U.U.",
+    "S.U.U.U.U"
   ]
 }

@@ -382,6 +382,7 @@ class SolsticeDQL:
             pygame.K_t: 'train',
             pygame.K_e: 'test',
             pygame.K_x: 'expert',
+            pygame.K_m: 'music',
             pygame.K_n: 'next',
             pygame.K_p: 'prev',
             pygame.K_c: 'channels',
@@ -424,6 +425,9 @@ class SolsticeDQL:
                         elif action_mapping[event.key] == 'channels':
                             game.generate_multi_channel_state(True)
                             print(f"Displaying channels")
+                        elif action_mapping[event.key] == 'music':
+                            game.ToggleMusic();
+                            print(f"Toggle music")
                         elif action_mapping[event.key] == 'toggle_display':
                             disable_display_for_training = not disable_display_for_training;
                             print(f"Hidden training changed to {disable_display_for_training}.")

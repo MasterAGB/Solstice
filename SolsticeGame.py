@@ -29,9 +29,21 @@ class SolsticeGame:
         self.action_size = 4  # Assuming Left, Down, Right, Up
 
         pygame.init()
+        # Load the music file
+        pygame.mixer.music.load("tiles/Audio.mp3")
+        # Play the music
+        pygame.mixer.music.play()
         win_size = (737, 744)
         win = pygame.display.set_mode(win_size)
         pygame.display.set_caption("Solstice Play")
+
+
+    def ToggleMusic(self):
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
+        else:
+            pygame.mixer.music.play()
+        pass
 
     def action_space_sample(self):
         # Returns a random action from 0, 1, 2, 3
@@ -196,48 +208,6 @@ class SolsticeGame:
 
         # IMPORTANT: Verify the last channel is correctly assigned for the player's position.
         state_tensor[num_channels - 1, player_row, player_col] = 1  # Use num_channels - 1 instead of -1
-
-        if generateImages:
-            symbol_descriptions = {
-                '.': 'Free Space',
-                'H': 'Hole',
-                'G': 'Goal',
-                'K': 'Key',
-                'C': 'Closed Goal',
-                'F': 'Monster with Key Drop',
-                'U': 'Unstable Floor',
-                'B': 'Bomb',
-                'W': 'Wall',
-                'S': 'Start',
-                # Add more symbols as needed
-            }
-
-            i=0
-            # Generate and save BW images for each channel
-            for channel, index in normalized_channel_indices.items():
-                i+=1;
-                plt.figure(figsize=(2, 2))
-                plt.imshow(state_tensor[index].cpu().numpy(), cmap='gray', interpolation='none')
-                title = f'Ch {index}: {symbol_descriptions[channel]}'  # Use channel symbol as title
-                plt.title(title)
-                plt.axis('off')
-                plt.savefig(f'channels/channel_{index}_{channel}.png')
-                plt.close()
-                #plt.show()
-
-                self.DrawChannelImage(f'channels/channel_{index}_{channel}.png',i,num_channels);
-
-            i+=1;
-            # Generate and show the player position separately if needed
-            plt.figure(figsize=(2, 2))
-            plt.imshow(state_tensor[num_channels - 1].cpu().numpy(), cmap='gray', interpolation='none')
-            plt.title(f'Ch {num_channels - 1}: Player Position')
-            plt.axis('off')
-            plt.savefig(f'channels/channel_{num_channels - 1}_player_position.png')
-            #plt.show()
-            plt.close()
-            self.DrawChannelImage(f'channels/channel_{num_channels - 1}_player_position.png', i,num_channels);
-
 
         return state_tensor.to(self.device)
 
@@ -607,7 +577,7 @@ class SolsticeGame:
     def SetFooter(self):
 
         self.draw_text_with_gradient(
-            "=Train e=Xpert =Eval =Reset =Next =Prev =Channels", (8, 714),
+            "=Train e=Xpert =Eval =Reset =Next =Prev =Chan =Music", (8, 714),
             (231, 255, 165),
             (0, 150, 0), 16)
 
@@ -677,4 +647,5 @@ class SolsticeGame:
         # Assign sorted indices
         sorted_channel_indices = {tile: index for index, tile in enumerate(sorted_tiles)}
         return sorted_channel_indices
+
 

@@ -1,11 +1,14 @@
 {
     "name": "Glacial Passage",
-    "style": "portal",
+    "style": "castle",
     "map_structure": [
         "S...",
         "....",
+        "....",
         ".H..",
         ".HH.",
+        "....",
+        "....",
         "...G"
     ]
 }
