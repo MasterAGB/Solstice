@@ -1,0 +1,15 @@
+{
+  "name": "Expanded Chambers",
+  "style": "default",
+  "map_structure": [
+    "P..U.H..K",
+    "..HH.HH..",
+    ".HH...HH.",
+    "UH.....HA",
+    "....S....",
+    "UH.....HD",
+    "DHH...HH.",
+    "DDHH.HH..",
+    "CDDU.D..P"
+  ]
+}

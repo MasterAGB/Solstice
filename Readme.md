@@ -43,6 +43,51 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Level Tiles and Symbols 🗺️
+
+Embark on a journey through meticulously crafted levels, each dotted with unique tiles that challenge your strategy and reflexes:
+
+- **S (🧙️) Start:** Your adventure begins here. The player's starting point.
+- **. (⬜) Space:** Free, unobstructed ground to walk on.
+- **W (🧱) Wall:** Impassable barriers that test your route-finding skills.
+- **H (🕳️) Hole:** Beware of falls that could end your quest prematurely.
+- **M (👾) Monster:** Lurk with caution. These creatures move randomly and are lethal upon touch.
+- **F (👹) Ferocious Monster:** A formidable foe that, upon defeat with a Bomb, leaves behind a Key.
+- **B (💣) Bomb:** A strategic asset against monsters, especially effective against the Ferocious Monster or groups of Monsters.
+- **U (🌀) Unstable ground:** Tread lightly, as these tiles transform into Holes after one step.
+- **D (🍄) Disorienter:** A tricky obstacle that alters your controls, neutralized by the Potion.
+- **P (⚗️) Potion:** The antidote to the Mushroom's effect, safeguarding you from future disorientation.
+- **K (🗝️) Key:** The key to unlocking new paths and gates within the level.
+- **C (🔒) Closed Gate:** Opens with a Key, marking potential exits or important areas.
+- **G (🏁) Goal:** The ultimate destination of each level, ideally placed to challenge the player's journey.
+- **J (🔑) Journey Key:** Opens specific doors within the level, adding layers to the exploration.
+- **T (📦) Locked Chest:** Holds a Level Door Key but requires a Press Plate to unlock.
+- **R (🔘) Press Plate:** Activates to unlock specific Locked Chests, revealing crucial items.
+- **L (🔓) Open Door:** Signifies a path has been cleared, leading to new sections of the level.
+- **A (🔒) Access Denied Door:** Obstructs progress, awaiting the right Key to be unlocked.
+- **Q (💀) Quest Beast:** Defeat to acquire a Level Door Key, essential for navigating the intricacies of Solstice.
+
+## Level Editor 🛠️
+
+- **Entering Editor Mode:** Press `D` to activate the editor mode, transforming the game experience by allowing you to modify the level layout in real-time.
+- **Exiting Editor Mode:** Pressing `D` again copies the current level layout to the clipboard, making it easy to share or modify levels outside the game environment.
+
+## Building an Executable 📦
+
+For those looking to distribute or play NES Solstice Reimagined without the need for a Python environment, follow these steps to create an executable file:
+
+1. Ensure you have PyInstaller installed:
+   ```bash
+   pip install pyinstaller
+   ```
+2. Navigate to your project directory and run PyInstaller with your script:
+   ```bash
+   pyinstaller --onefile --windowed --icon=icon.ico main.py
+   ```
+3. Find your executable in the `dist` folder.
+
+This process compiles your game into a standalone `.exe` file, incorporating all necessary dependencies, making it easy to share and enjoy the game across Windows systems without additional setup.
+
 ## Contributing 🤝
 
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**. Check out our contribution guidelines for more information.

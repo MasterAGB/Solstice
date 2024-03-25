@@ -1,0 +1,26 @@
+{
+  "name": "Test level",
+  "style": "default",
+  "map_structure": [
+    "HHHHHHHHHHHHHHHHHHHH",
+    "HM......MHHHH...HHHH",
+    "H....M...HHH.....HHH",
+    "H........UUA..C..HHH",
+    "H.M..F.M.HHH.....HHH",
+    "H........HHHH...HHHH",
+    "HHH.HHHHHHHHHH.HHHHH",
+    "HHH.HHHHHHHHHH.HHHHH",
+    ".....MHHHHHHHH.HHHHH",
+    "..D...HH...Q.H..D...",
+    ".DPD..HHM....H....B.",
+    "..D.M.UA..M..U......",
+    "......HH.....HD.....",
+    "HHUHHHHHHHUHHH...U..",
+    "HHUHHHHHHHUHHHHHHAHH",
+    "M....UJU.....HT....D",
+    ".....HHH.....HD.....",
+    "...........HHH......",
+    ".....H.....UUA..D...",
+    "S....H.....HHH....DR"
+  ]
+}
