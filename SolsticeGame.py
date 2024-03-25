@@ -3,12 +3,16 @@ import random
 import pygame
 import torch
 import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import simpledialog
+import pyperclip
+
 
 class SolsticeGame:
     # Define each tile type's index in the channel dimension
     used_channel_indices = {}
 
-    def __init__(self, level_index=1, game_skin="default", device = "cpu"):
+    def __init__(self, level_index=1, game_skin="default", device="cpu"):
         global win, win_size;
 
         self.device = device
@@ -19,12 +23,10 @@ class SolsticeGame:
         self.last_action = None
         self.SetupLevel(level_index)
 
-
         # Define action mapping: 0=Left, 1=Down, 2=Right, 3=Up
         # self.action_space = np.arange(4)
         # self.observation_space = np.arange(len(self.map_layout) * len(self.map_layout[0]))
         self.enableRendering = True
-
 
         self.action_size = 4  # Assuming Left, Down, Right, Up
 
@@ -36,7 +38,6 @@ class SolsticeGame:
         win_size = (737, 744)
         win = pygame.display.set_mode(win_size)
         pygame.display.set_caption("Solstice Play")
-
 
     def ToggleMusic(self):
         if pygame.mixer.music.get_busy():
@@ -95,10 +96,38 @@ class SolsticeGame:
                 return level['map_structure']
         except FileNotFoundError:
             print(f"Level file {file_name} not found - WIN the game.")
-            return self.generate_solvable_map(8, 8)  # Fallback to a default map
+            return self.generate_solvable_map(21, 21)  # Fallback to a default map
         except json.JSONDecodeError:
             print(f"Error reading level file {file_name}.")
-            return self.generate_solvable_map(8, 8)  # Fallback to a default map
+            return self.generate_solvable_map(21, 21)  # Fallback to a default map
+
+
+    def PrintLevel(self):
+        # Create a dictionary with the level data
+        level_data = {
+            "name": self.level_name,
+            "style": self.skin,
+            "map_structure": self.map_layout
+        }
+
+        # Convert the dictionary to a JSON-formatted string
+        level_json = json.dumps(level_data, indent=2)
+
+        # Print to console
+        print(level_json)
+
+        # Copy to clipboard
+        pyperclip.copy(level_json)
+        print("Level JSON has been copied to the clipboard.")
+
+        # Use Tkinter's simpledialog to show the JSON in a copy-able popup
+        # This requires a Tkinter root window, which we create and then hide
+        root = tk.Tk()
+        root.withdraw()  # We don't want a full GUI, so keep the root window from appearing
+        simpledialog.messagebox.showinfo("Level JSON", level_json)  # Show the JSON in a messagebox
+
+        # Destroy the Tkinter root window when done
+        root.destroy()
 
     def step(self, action):
         self.step_count = self.step_count + 1;
@@ -119,10 +148,10 @@ class SolsticeGame:
         # Calculate current position
         row = self.state // cols
         col = self.state % cols
-        row_prev = row;
-        col_prev = col;
+        row_prev = row
+        col_prev = col
 
-        self.last_action = action;
+        self.last_action = action
         # Determine new position based on action
         if action == 0:  # Left
             col = max(0, col - 1)
@@ -133,15 +162,18 @@ class SolsticeGame:
         elif action == 3:  # Up
             row = max(0, row - 1)
 
-        if self.map_layout[row][col] == 'W':
+        if self.map_layout[row][col] in ['W', 'T', 'C']:
             row = row_prev
             col = col_prev
+
+        if(self.key_count==0):
+            if self.map_layout[row][col] in ['A']:
+                row = row_prev
+                col = col_prev
 
         # Update state
         self.state = row * cols + col
 
-        self.moveAllMobs("M", ".")
-        self.moveAllMobs("F", ".")
 
         # Check for game termination conditions
         cell_prev = self.map_layout[row_prev][col_prev]
@@ -154,12 +186,22 @@ class SolsticeGame:
             reward = 1
         elif cell == 'H':
             is_terminated = True
+
+        # terminating if i stepped on monster
         elif cell == 'M':
             is_terminated = True
+        elif cell == 'F':
+            is_terminated = True
+        elif cell == 'Q':
+            is_terminated = True
+
         elif cell == 'D':
-            if(self.has_antidot == False):
+            if (self.has_antidot == False):
                 self.is_dizzy = True
             self.replaceThisCell(row, col, ".")
+        elif cell == 'A':
+            self.key_count-=1;
+            self.replaceThisCell(row, col, "L")
         elif cell == 'P':
             reward = 0.3
             self.has_antidot = True
@@ -168,12 +210,37 @@ class SolsticeGame:
         elif cell == 'K':
             reward = 0.3
             self.replaceThisCell(row, col, ".")
-            self.replaceAllCells("C", "G")
+            self.replaceAllCells("C", "G") #Opening the Gate
+        elif cell == 'R':
+            reward = 0.3
+            self.replaceAllCells("T", "J") #Opening all chests with Keys
+        elif cell == 'J':
+            self.key_count+=1;
+            reward = 0.3
+            self.replaceThisCell(row, col, ".")
+            #not doing this: self.replaceAllCells("A", "L") #Opening the Door
         elif cell == 'B':
             reward = 0.3
             self.replaceThisCell(row, col, ".")
-            self.replaceAllCells("M", ".")
-            self.replaceAllCells("F", "K")
+            self.replaceAllCells("M", ".") #killing monster
+            self.replaceAllCells("F", "K") #replacing F Monster with a goal key
+            self.replaceAllCells("Q", "J") #replacing KeyMonster with a door key
+
+
+
+        self.moveAllMobs("M", ".")
+        self.moveAllMobs("F", ".")
+        self.moveAllMobs("Q", ".")
+
+        #terminating also if monster has stepped on me
+        cell = self.map_layout[row][col]
+        if cell == 'M':
+            is_terminated = True
+        elif cell == 'F':
+            is_terminated = True
+        elif cell == 'Q':
+            is_terminated = True
+
 
         if (self.step_count > 20000):
             is_truncated = True;
@@ -183,14 +250,211 @@ class SolsticeGame:
 
         return self.state, state_tensor, reward, is_terminated, is_truncated, info
 
-    def generate_multi_channel_state(self, generateImages = False):
+    selected_tile_type = '.'
+    def handle_mouse_click(self, x, y):
+        print(f"Clicked on {x}x{y}")
+
+        # Check if click is in the tile selection area
+        for tile_type, _, position in self.tile_selection:
+            tile_rect = pygame.Rect(position[0], position[1], self.tile_selection_w, self.tile_selection_h)  # Assuming tile size
+            if tile_rect.collidepoint(x, y):
+                self.selected_tile_type = tile_type  # Save selected tile type
+                print(f"selected_tile_type on {self.selected_tile_type}")
+                return
+
+        # Convert screen coordinates to isometric grid coordinates
+        # This is a simplified conversion and may need adjustment
+        grid_x, grid_y = self.screen_to_iso(x, y)
+
+        print(f"grid_x on {grid_x}x{grid_y}")
+
+        if 0 <= grid_x < len(self.map_layout[0]) and 0 <= grid_y < len(self.map_layout):
+            # Replace the tile at the calculated grid position
+            self.map_layout[grid_y] = (
+                    self.map_layout[grid_y][:grid_x] + self.selected_tile_type +
+                    self.map_layout[grid_y][grid_x + 1:]
+            )
+
+    cursor_grid_x=-1;
+    cursor_grid_y=-1;
+    def handle_mouse_move(self, x, y):
+        print(f"Moved on {x}x{y}")
+        # Convert screen coordinates to isometric grid coordinates
+        # This is a simplified conversion and may need adjustment
+        self.cursor_grid_x, self.cursor_grid_y = self.screen_to_iso(x, y)
+
+        print(f"moved grid_x on {self.cursor_grid_x}x{self.cursor_grid_y}")
+
+
+    def screen_to_iso(self, screen_x, screen_y):
+        global win, win_size
+        # This conversion assumes a direct mapping and needs to be adjusted based on your isometric projection
+        tile_width = 32
+        tile_height = 16
+        tile_width_half = tile_width/2   # Half the width of your tile
+        tile_height_half = tile_height/2   # Half the height of your tile
+
+        x = screen_x - win_size[0]/2;
+        y = screen_y - win_size[1]/2 - tile_height * 3  + 160; #  +
+        grid_x = (x / tile_width_half + y / tile_height_half)/2/2
+        grid_y = (y / tile_height_half - (x / tile_width_half))/2/2
+
+        # Calculate offset needed to center the character
+        offset_grid_row = 0
+        offset_grid_col = 0
+
+        grid_size_rows = len(self.map_layout)
+        grid_size_cols = len(self.map_layout[0])
+        if (grid_size_rows > 9 or grid_size_cols > 9):
+            current_row = self.state // grid_size_cols
+            current_col = self.state % grid_size_cols
+
+            offset_grid_row = - current_row
+            offset_grid_col = - current_col
+
+            # Max tiles on screen
+            viewport_tiles_x = 11
+            viewport_tiles_y = 15
+
+            # Maximum allowable offsets given the level size - 4 and 2 - magic numbers
+            max_offset_x = grid_size_cols - viewport_tiles_x // 2 - 4 + 4
+            max_offset_y = grid_size_rows - viewport_tiles_y // 2 - 2 + 4
+
+            # Calculate desired offset to center the character
+            desired_offset_col = -current_col
+            desired_offset_row = -current_row
+
+            # Clamp the offsets to the maximum allowable values to avoid showing too much empty space
+            offset_grid_col = max(desired_offset_col, -max_offset_x)
+            offset_grid_row = max(desired_offset_row, -max_offset_y)
+
+
+        return int(grid_x-offset_grid_col), int(grid_y-offset_grid_row)
+
+
+    tile_selection = []  # Clear previous selections
+    tile_selection_w = 32;
+    tile_selection_h = 32;
+
+    def draw_tile_selection_area(self, tiles_per_row=11):
+        # Define starting position for drawing tiles
+        start_x, start_y = 30, 604
+        tile_spacing = 20  # Space between tiles
+        row_spacing = 8  # Vertical space between rows
+        outline_thickness = 2  # Thickness of the selection outline
+
+        # Tile types and their display names for the editor
+        tile_types = {
+            'S': 'start', '.': 'free', 'H': 'hole', 'G': 'goal', 'C': 'goalClosed',
+            'K': 'key', 'J': 'key2O', 'T': 'key2L', 'R': 'press', 'L': 'door',
+            'A': 'doorClosed', 'Q': 'mob3', 'M': 'mob', 'F': 'mob2', 'U': 'unstable',
+            'D': 'dizzy', 'P': 'potion', 'B': 'bomb', 'W': 'wall'
+        }
+
+        def scale_and_crop_image(image, target_width, target_height):
+            # Calculate the scale factor to match the target width
+            original_width, original_height = image.get_size()
+            scale_factor = target_width / original_width
+            scaled_height = int(original_height * scale_factor)
+
+            # Scale the image
+            scaled_image = pygame.transform.scale(image, (target_width, scaled_height))
+
+            # Crop the bottom part of the scaled image to match the target height
+            if scaled_height > target_height:
+                # Calculate the area to keep
+                crop_rect = pygame.Rect(0, scaled_height - target_height, target_width, target_height)
+                cropped_image = scaled_image.subsurface(
+                    crop_rect).copy()  # .copy() is necessary to create a new surface
+            else:
+                cropped_image = scaled_image
+
+            return cropped_image
+
+        # Load and draw each tile type
+        for i, (tile_type, image_name) in enumerate(tile_types.items()):
+            image = pygame.image.load(f'tiles/{self.skin}/{image_name}.png')
+            scaled_image = scale_and_crop_image(image, self.tile_selection_w, self.tile_selection_h)  # Scale for selection area
+
+
+            # Calculate row and column based on tile index
+            row = i // tiles_per_row
+            col = i % tiles_per_row
+
+            # Calculate position based on row and column
+            x = start_x + col * (tile_spacing + self.tile_selection_w)
+            y = start_y + row * (tile_spacing + self.tile_selection_h // 2 + row_spacing)
+            position = (x, y)
+
+            pygame.draw.rect(win, (0, 0, 0), (
+                x - outline_thickness, y - outline_thickness, self.tile_selection_w + outline_thickness * 2,
+                self.tile_selection_h + outline_thickness * 2))
+
+            # Draw tile with a black background and yellow outline if it's the selected one
+            if tile_type == self.selected_tile_type:
+                pygame.draw.rect(win, (255, 255, 0), (
+                x - outline_thickness, y - outline_thickness, self.tile_selection_w + outline_thickness * 2,
+                self.tile_selection_h + outline_thickness * 2), outline_thickness)
+            win.blit(scaled_image, position)
+            self.tile_selection.append((tile_type, scaled_image, position))
+
+    def stepEditor(self, action, event):
+        # Simplified step function with directional movement.
+        rows = len(self.map_layout)
+        cols = len(self.map_layout[0])
+        reward = 0
+        is_terminated = False
+        is_truncated = False  # TMP removed
+        info = {}  # Placeholder for additional info.
+
+        # Calculate current position
+        row = self.state // cols
+        col = self.state % cols
+        row_prev = row
+        col_prev = col
+
+        self.last_action = action
+        # Determine new position based on action
+        if action == 0:  # Left
+            col = max(0, col - 1)
+        elif action == 1:  # Down
+            row = min(rows - 1, row + 1)
+        elif action == 2:  # Right
+            col = min(cols - 1, col + 1)
+        elif action == 3:  # Up
+            row = max(0, row - 1)
+
+
+        # Update state
+        self.state = row * cols + col
+
+        # Check for game termination conditions
+        cell_prev = self.map_layout[row_prev][col_prev]
+        cell = self.map_layout[row][col]
+
+        self.renderEditor(event, False);
+        state_tensor = self.generate_multi_channel_state();
+
+        return self.state, state_tensor, reward, is_terminated, is_truncated, info
+
+    def NeedToDrawEmptyTileUnder(self, tile):
+        return (tile in ['.', 'M', 'F', 'B', 'D', 'P', 'K', 'J', 'T', 'L', 'A', 'Q'])
+
+    def IsUnderTile(self, tile):
+        return (tile in ['.', 'S', 'G', 'C', 'H', 'R', 'U'])
+
+    def IsOverTile(self, tile):
+        return not self.IsUnderTile(tile)
+
+
+    def generate_multi_channel_state(self, generateImages=False):
         # Normalize the indices to be continuous starting from 0
         normalized_channel_indices = self.used_channel_indices
 
         # Correctly increase the number of channels by 1 to include the player's position.
         num_channels = len(normalized_channel_indices) + 1  # This should reflect in state_tensor initialization
 
-        #print(f"Number of channels (including player position): {num_channels}")
+        # print(f"Number of channels (including player position): {num_channels}")
 
         # Initialize the state tensor with zeros, explicitly setting the channel dimension.
         state_tensor = torch.zeros((num_channels, self.level_height, self.level_width))
@@ -209,7 +473,6 @@ class SolsticeGame:
         # IMPORTANT: Verify the last channel is correctly assigned for the player's position.
         state_tensor[num_channels - 1, player_row, player_col] = 1  # Use num_channels - 1 instead of -1
 
-
         if generateImages:
             symbol_descriptions = {
                 '.': 'Free Space',
@@ -222,13 +485,19 @@ class SolsticeGame:
                 'B': 'Bomb',
                 'W': 'Wall',
                 'S': 'Start',
-                # Add more symbols as needed
+
+                'J': 'Door keys',
+                'T': 'Chest with key',
+                'R': 'Chest opener',
+                'L': 'Opened door',
+                'A': 'Closed door',
+                'Q': 'Monster -door key',
             }
 
-            i=0
+            i = 0
             # Generate and save BW images for each channel
             for channel, index in normalized_channel_indices.items():
-                i+=1;
+                i += 1;
                 plt.figure(figsize=(2, 2))
                 plt.imshow(state_tensor[index].cpu().numpy(), cmap='gray', interpolation='none')
                 title = f'Ch {index}: {symbol_descriptions[channel]}'  # Use channel symbol as title
@@ -236,22 +505,20 @@ class SolsticeGame:
                 plt.axis('off')
                 plt.savefig(f'channels/channel_{index}_{channel}.png')
                 plt.close()
-                #plt.show()
+                # plt.show()
 
-                self.DrawChannelImage(f'channels/channel_{index}_{channel}.png',i,num_channels);
+                self.DrawChannelImage(f'channels/channel_{index}_{channel}.png', i, num_channels);
 
-            i+=1;
+            i += 1;
             # Generate and show the player position separately if needed
             plt.figure(figsize=(2, 2))
             plt.imshow(state_tensor[num_channels - 1].cpu().numpy(), cmap='gray', interpolation='none')
             plt.title(f'Ch {num_channels - 1}: Player Position')
             plt.axis('off')
             plt.savefig(f'channels/channel_{num_channels - 1}_player_position.png')
-            #plt.show()
+            # plt.show()
             plt.close()
-            self.DrawChannelImage(f'channels/channel_{num_channels - 1}_player_position.png', i,num_channels);
-
-
+            self.DrawChannelImage(f'channels/channel_{num_channels - 1}_player_position.png', i, num_channels);
 
         return state_tensor.to(self.device)
 
@@ -343,17 +610,19 @@ class SolsticeGame:
         self.render();
         state_tensor = self.generate_multi_channel_state()
         return self.state, state_tensor, {}
+    def resetTestLevel(self):
+        self.SetupTestLevel()
+        self.render();
+        state_tensor = self.generate_multi_channel_state()
+        return self.state, state_tensor, {}
 
-    def render(self):
-        global win, win_size
-        if self.enableRendering == False:
-            return;
-
-        clock = pygame.time.Clock()
-
+    def renderMap(self):
         def load_image(skin, name):
             """Loads an image from the 'tiles/' directory."""
-            return pygame.image.load(f'tiles/{skin}/{name}.png')
+            if(skin==""):
+                return pygame.image.load(f'tiles/{name}.png')
+            else:
+                return pygame.image.load(f'tiles/{skin}/{name}.png')
 
         scale_factor = 2;
 
@@ -370,16 +639,28 @@ class SolsticeGame:
 
         # Load tiles with added default and wall tiles
         tiles = {
+            ',': load_image_scaled('', 'cursor', scale_factor),
             'CL': load_image_scaled(('char_dizzy' if self.is_dizzy else 'char'), 'char_left', scale_factor),
             'CB': load_image_scaled(('char_dizzy' if self.is_dizzy else 'char'), 'char_bottom', scale_factor),
             'CR': load_image_scaled(('char_dizzy' if self.is_dizzy else 'char'), 'char_right', scale_factor),
             'CT': load_image_scaled(('char_dizzy' if self.is_dizzy else 'char'), 'char_top', scale_factor),
+
             'S': load_image_scaled(self.skin, 'start', scale_factor),
             '.': load_image_scaled(self.skin, 'free', scale_factor),
             'H': load_image_scaled(self.skin, 'hole', scale_factor),
             'G': load_image_scaled(self.skin, 'goal', scale_factor),
             'C': load_image_scaled(self.skin, 'goalClosed', scale_factor),
             'K': load_image_scaled(self.skin, 'key', scale_factor),
+
+            'J': load_image_scaled(self.skin, 'key2O', scale_factor),  # some level door - key
+            'T': load_image_scaled(self.skin, 'key2L', scale_factor),
+            # Chest, that contains some level door key, locked. must be unlocked with a button. After unlocking - transforms to a key
+            'R': load_image_scaled(self.skin, 'press', scale_factor),
+            # button to unlock a chest, that kontains a some level door
+            'L': load_image_scaled(self.skin, 'door', scale_factor),  # some level door - opened
+            'A': load_image_scaled(self.skin, 'doorClosed', scale_factor),  # some level door - closed
+            'Q': load_image_scaled(self.skin, 'mob3', scale_factor),  # monster, that drops a key for some level door
+
             'M': load_image_scaled(self.skin, 'mob', scale_factor),
             'F': load_image_scaled(self.skin, 'mob2', scale_factor),
             'U': load_image_scaled(self.skin, 'unstable', scale_factor),
@@ -387,8 +668,8 @@ class SolsticeGame:
             'P': load_image_scaled(self.skin, 'potion', scale_factor),
             'B': load_image_scaled(self.skin, 'bomb', scale_factor),
             'W': load_image_scaled(self.skin, 'wall', scale_factor),
-            'WTL': load_image_scaled(self.skin, 'wall', scale_factor),  # Wall Top Left
-            'WTR': load_image_scaled(self.skin, 'wall', scale_factor),  # Wall Top Right
+            'WL': load_image_scaled(self.skin, 'wallL', scale_factor),  # Wall Top Left
+            'WR': load_image_scaled(self.skin, 'wallR', scale_factor),  # Wall Top Right
         }
 
         state = self.state
@@ -398,6 +679,29 @@ class SolsticeGame:
 
         current_row = self.state // grid_size_cols
         current_col = self.state % grid_size_cols
+
+        # Calculate offset needed to center the character
+        offset_grid_row = 0
+        offset_grid_col = 0
+        if (grid_size_rows > 9 or grid_size_cols > 9):
+            offset_grid_row = - current_row
+            offset_grid_col = - current_col
+
+            # Max tiles on screen
+            viewport_tiles_x = 11
+            viewport_tiles_y = 15
+
+            # Maximum allowable offsets given the level size - 4 and 2 - magic numbers
+            max_offset_x = grid_size_cols - viewport_tiles_x // 2 - 4 + 4
+            max_offset_y = grid_size_rows - viewport_tiles_y // 2 - 2 + 4
+
+            # Calculate desired offset to center the character
+            desired_offset_col = -current_col
+            desired_offset_row = -current_row
+
+            # Clamp the offsets to the maximum allowable values to avoid showing too much empty space
+            offset_grid_col = max(desired_offset_col, -max_offset_x)
+            offset_grid_row = max(desired_offset_row, -max_offset_y)
 
         # Assume each tile has fixed size for simplicity
         tile_width, tile_height = 32 * scale_factor, 16 * scale_factor
@@ -434,34 +738,58 @@ class SolsticeGame:
             this_tile_offset_y = tiles[tile_type].get_size()[1] + 16 * scale_factor
             this_tile_offset_x = tiles[tile_type].get_size()[0] / 2
             # Convert grid coordinates to isometric, including walls
-            iso_x = (col - row) * (tile_width // 2) + offset_x + tile_width / 2 - this_tile_offset_x
-            iso_y = (col + row) * (tile_height // 2) + offset_y - this_tile_offset_y
+            iso_x = ((col + offset_grid_col) - (row + offset_grid_row)) * (
+                    tile_width // 2) + offset_x + tile_width / 2 - this_tile_offset_x
+            iso_y = ((col + offset_grid_col) + (row + offset_grid_row)) * (
+                    tile_height // 2) + offset_y - this_tile_offset_y
             win.blit(tiles[tile_type], (iso_x, iso_y))
+
+        def drawCursor(iso_x, iso_y):
+            tile_type = ","
+            this_tile_offset_y = tiles[tile_type].get_size()[1]
+            this_tile_offset_x = tiles[tile_type].get_size()[0] / 2
+            win.blit(tiles[tile_type], (iso_x - this_tile_offset_x, iso_y - this_tile_offset_y))
 
         # Render tiles in isometric view, including boundary for walls
         for i in range(-1, grid_size_rows):
             for j in range(-1, grid_size_cols):
+                tile_type = '.'
                 # Determine the type of tile
                 if i == -1 or j == -1:
                     if (j) == (-1):  # this must me in minus
-                        tile_type = 'WTL'  # Top left wall for the first cell
+                        tile_type = 'WL'  # Top left wall for the first cell
                     elif (i) == (-1):  # this must be in minus
-                        tile_type = 'WTR'  # Top right wall for the last cell in the first row
+                        tile_type = 'WR'  # Top right wall for the last cell in the first row
 
                 else:
                     tile_type = map_layout[i][j]
 
-                this_tile_offset_y = tiles[tile_type].get_size()[1]
-                this_tile_offset_x = tiles[tile_type].get_size()[0] / 2
-
                 # Convert grid coordinates to isometric, including walls
-                iso_x = (j - i) * (tile_width // 2) + offset_x + tile_width / 2 - this_tile_offset_x
-                iso_y = (j + i) * (tile_height // 2) + offset_y - this_tile_offset_y
+                iso_x = ((j + offset_grid_col) - (i + offset_grid_row)) * (
+                        tile_width // 2) + offset_x + tile_width / 2
+                iso_y = ((j + offset_grid_col) + (i + offset_grid_row)) * (
+                        tile_height // 2) + offset_y
 
-                win.blit(tiles[tile_type], (iso_x, iso_y))
+                if (self.NeedToDrawEmptyTileUnder(tile_type)):
+                    this_tile_offset_y = tiles['.'].get_size()[1]
+                    this_tile_offset_x = tiles['.'].get_size()[0] / 2
+                    win.blit(tiles['.'], (iso_x - this_tile_offset_x, iso_y - this_tile_offset_y))
+
+                if (self.IsUnderTile(tile_type)):
+                    this_tile_offset_y = tiles[tile_type].get_size()[1]
+                    this_tile_offset_x = tiles[tile_type].get_size()[0] / 2
+                    win.blit(tiles[tile_type], (iso_x - this_tile_offset_x, iso_y - this_tile_offset_y))
 
                 if (current_col == j and current_row == i):
                     drawChar(i, j);
+
+                if (self.IsOverTile(tile_type)):
+                    this_tile_offset_y = tiles[tile_type].get_size()[1]
+                    this_tile_offset_x = tiles[tile_type].get_size()[0] / 2
+                    win.blit(tiles[tile_type], (iso_x - this_tile_offset_x, iso_y - this_tile_offset_y))
+
+                if (self.cursor_grid_x == j and self.cursor_grid_y == i):
+                    drawCursor(iso_x, iso_y);
 
             # Define your colors
 
@@ -470,12 +798,62 @@ class SolsticeGame:
         # Draw (blit) the frame image over everything else
         win.blit(frame_image, (0, 0))
 
+    def renderEditor(self, event, buttonDown):
+        global win, win_size
+
+        clock = pygame.time.Clock()
+
+        self.draw_tile_selection_area();
+        if(buttonDown):
+            if event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEMOTION:
+                x, y = pygame.mouse.get_pos()
+                self.handle_mouse_click(x, y)
+                self.handle_mouse_move(x, y)
+        else:
+            x, y = pygame.mouse.get_pos()
+            self.handle_mouse_move(x, y)
+
+        self.renderMap();
+
+        descr = "Editor: Level " + str(self.level_index) + "\n";
+
+        self.SetDescription(descr);
+
+        self.draw_tile_selection_area();
+
+
+        self.SetHeader();
+        self.SetFooter();
+
+        pygame.display.flip()
+        clock.tick(10)  # Cap the frame rate
+
+    def render(self):
+        global win, win_size
+        if self.enableRendering == False:
+            return;
+
+        clock = pygame.time.Clock()
+
+
+        state = self.state
+        map_layout = self.map_layout
+        grid_size_rows = len(self.map_layout)
+        grid_size_cols = len(self.map_layout[0])
+
+        current_row = self.state // grid_size_cols
+        current_col = self.state % grid_size_cols
+
+        self.renderMap();
+
         descr = "Level " + str(self.level_index) + "  " + str(current_col) + "x" + str(current_row) + "\n";
         descr += "Steps " + str(self.step_count) + "\n";
         if (self.has_antidot):
             descr += "Has antidot!\n";
         if (self.is_dizzy):
             descr += "Poisoned!\n";
+        if (self.key_count>0):
+            descr += f"Keys: {self.key_count}\n";
 
         self.SetDescription(descr);
 
@@ -485,11 +863,10 @@ class SolsticeGame:
         pygame.display.flip()
         clock.tick(10)  # Cap the frame rate
 
-    def draw_text_with_gradient(self, text, position, top_color, bottom_color, font_size = 18):
+    def draw_text_with_gradient(self, text, position, top_color, bottom_color, font_size=18):
         global win, win_size
 
         font_path = "font/solstice-nes.ttf"
-
 
         # Load the custom font
         font = pygame.font.Font(font_path, font_size)
@@ -621,17 +998,18 @@ class SolsticeGame:
     def SetFooter(self):
 
         self.draw_text_with_gradient(
-            "=Train e=Xpert =Eval =Reset =Next =Prev =Chan =Music", (8, 714),
+            "=Train e=Xpert =Eval =Reset =Next =Prev =Chan =Music E=dit", (8, 714),
             (231, 255, 165),
-            (0, 150, 0), 16)
+            (0, 150, 0), 14)
 
     def SetupLevel(self, level_index):
         self.level_index = level_index;
         self.map_layout = self.load_map_layout(self.level_index)
         self.used_channel_indices = self.GetUsedChannelIndexes()
-        self.level_channels_count = len(self.used_channel_indices) + 1  # adding plus one for the player position on map.
+        self.level_channels_count = len(
+            self.used_channel_indices) + 1  # adding plus one for the player position on map.
 
-        self.level_size_for_hidden_layer = len(self.map_layout) * len(self.map_layout[0])*self.level_channels_count;
+        self.level_size_for_hidden_layer = len(self.map_layout) * len(self.map_layout[0]) * self.level_channels_count;
         self.level_height = len(self.map_layout)
         self.level_width = len(self.map_layout[0])
 
@@ -640,22 +1018,46 @@ class SolsticeGame:
         self.step_count = 0
         self.is_dizzy = False
         self.has_antidot = False
+        self.key_count = 0
+
+    def SetupTestLevel(self):
+        self.used_channel_indices = self.GetUsedChannelIndexes()
+        self.level_channels_count = len(
+            self.used_channel_indices) + 1  # adding plus one for the player position on map.
+
+        self.level_size_for_hidden_layer = len(self.map_layout) * len(self.map_layout[0]) * self.level_channels_count;
+        self.level_height = len(self.map_layout)
+        self.level_width = len(self.map_layout[0])
+
+        self.state = self.GetDefaultPlayerPosition()
+        self.done = False
+        self.step_count = 0
+        self.is_dizzy = False
+        self.has_antidot = False
+        self.key_count = 0
 
     def GetUsedChannelIndexes(self):
         valuable_channel_indices = {
             # 'S': 0,  # Start
-            #'.': 1,  # Free space
+            # '.': 1,  # Free space
             'H': 2,  # Hole
             'G': 3,  # Goal
             'K': 4,  # Key
             'C': 5,  # Closed goal
-            #'M': 6,  # Monster
+            # 'M': 6,  # Monster
             'F': 7,  # Monster with key drop
             'U': 8,  # Unstable
-            #'D': 9,  # Dizzy
-            #'P': 10,  # Potion
+            # 'D': 9,  # Dizzy
+            # 'P': 10,  # Potion
             'B': 11,  # Bomb
             'W': 12,  # Wall
+
+            'J': 13,  # Door keys
+            'T': 14,  # Chest with key
+            'R': 15,  # Chest opener
+            'L': 16,  # Opened door
+            'A': 17,  # Closed door
+            'Q': 18,  # Monster -door key
         }
 
         # Initialize a set to hold the unique tiles found in the map layout
@@ -675,9 +1077,16 @@ class SolsticeGame:
             used_tiles.add('G')  # Add 'G' if 'C' is present
         if 'U' in used_tiles and 'H' not in used_tiles:
             used_tiles.add('H')  # Add 'H' if 'U' is present
+        if 'T' in used_tiles and 'J' not in used_tiles:
+            used_tiles.add('J')
+        if 'A' in used_tiles and 'L' not in used_tiles:
+            used_tiles.add('L')
+        if 'Q' in used_tiles and 'J' not in used_tiles:
+            used_tiles.add('J')
+
 
         # Ensure free space ('.') is always added
-        #used_tiles.add('.')
+        # used_tiles.add('.')
 
         # Filter the valuable_channel_indices to include only those used in the map layout
         used_channel_indices = {key: valuable_channel_indices[key] for key in used_tiles}
@@ -691,5 +1100,4 @@ class SolsticeGame:
         # Assign sorted indices
         sorted_channel_indices = {tile: index for index, tile in enumerate(sorted_tiles)}
         return sorted_channel_indices
-
 

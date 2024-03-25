@@ -356,6 +356,9 @@ class SolsticeDQL:
     expert_gameplay_enabled = False
     expert_gameplay_current_episode = 0
 
+    isEditor = False
+    buttonDown = False
+
     def prepareNewLevel(self):
         memory = ReplayMemory(self.replay_memory_size)  # Size is 1000
         print("Resetting memory with new level " + str(game.level_index));
@@ -386,6 +389,7 @@ class SolsticeDQL:
             pygame.K_n: 'next',
             pygame.K_p: 'prev',
             pygame.K_c: 'channels',
+            pygame.K_d: 'editor',
             pygame.K_PLUS: 'plus',
             pygame.K_EQUALS: 'plus',
             pygame.K_MINUS: 'minus',
@@ -398,41 +402,64 @@ class SolsticeDQL:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     is_terminated = True
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    self.buttonDown = False;
+                elif event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONDOWN:
+                    if(event.type == pygame.MOUSEBUTTONDOWN):
+                        self.buttonDown = True;
+
+
+                    if (self.isEditor):
+                        game.renderEditor(event, self.buttonDown);
+                        #print(f"Action: {event.type}")
+
                 elif event.type == pygame.KEYDOWN:
-                    if event.key in action_mapping:
-                        if action_mapping[event.key] == 'reset':
-                            # Regenerate the map and reset position
-                            game.map_layout = game.generate_solvable_map(8, 8)
+                    event_key = event.key
+
+
+                    if event_key in action_mapping:
+                        if action_mapping[event_key] == 'reset':
                             state, state_tensor, info = game.reset()
                             self.prepareNewLevel();
                             print("Map regenerated and position reset.")
-                        elif action_mapping[event.key] == 'skin':
+                        elif action_mapping[event_key] == 'skin':
                             game.skin = random.choice(game.skins)
                             game.render()
                             print(f"Skin changed to {game.skin}.")
-                        elif action_mapping[event.key] == 'next':
+                        elif action_mapping[event_key] == 'editor':
+                            self.isEditor = not self.isEditor;
+                            print(f"isEditor changed to {self.isEditor}.")
+                            if(self.isEditor):
+                                game.renderEditor(event, False)
+                                print(f"Opening editor for {game.level_index}")
+                            else:
+                                game.cursor_grid_x = -1;
+                                game.cursor_grid_y = -1;
+                                game.PrintLevel();
+                                game.resetTestLevel();
+                        elif action_mapping[event_key] == 'next':
                             print("Next level loading");
                             state, state_tensor, info = game.NextLevel();
                             game.render()
                             self.prepareNewLevel();
                             print(f"Skin changed to {game.skin}.")
-                        elif action_mapping[event.key] == 'prev':
+                        elif action_mapping[event_key] == 'prev':
                             print("Prev level loading");
                             state, state_tensor, info = game.PrevLevel();
                             game.render()
                             self.prepareNewLevel();
                             print(f"Skin changed to {game.skin}.")
-                        elif action_mapping[event.key] == 'channels':
+                        elif action_mapping[event_key] == 'channels':
                             game.generate_multi_channel_state(True)
                             print(f"Displaying channels")
-                        elif action_mapping[event.key] == 'music':
+                        elif action_mapping[event_key] == 'music':
                             game.ToggleMusic();
                             print(f"Toggle music")
-                        elif action_mapping[event.key] == 'toggle_display':
+                        elif action_mapping[event_key] == 'toggle_display':
                             disable_display_for_training = not disable_display_for_training;
                             print(f"Hidden training changed to {disable_display_for_training}.")
                             game.RenderScreen(f"Hidden training changed to {disable_display_for_training}.", "wizard")
-                        elif action_mapping[event.key] == 'train':
+                        elif action_mapping[event_key] == 'train':
                             self.prepareNewLevel();
                             if (disable_display_for_training):
                                 game.DisableDisplay()
@@ -440,23 +467,23 @@ class SolsticeDQL:
                             game.EnableDisplay()
                             print(f"Training finished.")
                             game.RenderScreen(f"Training finished!\nReset the level.", "wizard")
-                        elif action_mapping[event.key] == 'plus':  # Increase episodes
+                        elif action_mapping[event_key] == 'plus':  # Increase episodes
                             training_episodes *= 2
                             training_episodes = int(training_episodes)
                             print(f"Training episodes set to {training_episodes}.")
                             game.RenderScreen(f"Training episodes set to {training_episodes}.", "wizard")
-                        elif action_mapping[event.key] == 'minus':  # Decrease episodes
+                        elif action_mapping[event_key] == 'minus':  # Decrease episodes
                             training_episodes /= 2
                             training_episodes = int(max(2, training_episodes))
                             print(f"Training episodes set to {training_episodes}.")
                             game.RenderScreen(f"Training episodes set to {training_episodes}.", "evil")
-                        elif action_mapping[event.key] == 'test':
+                        elif action_mapping[event_key] == 'test':
                             self.prepareNewLevel();
                             print(f"Start testing")
                             solsticeDQL.test(game, 1)
                             print(f"Testing the game completed.")
                             game.RenderScreen(f"Test completed.", "wizard")
-                        elif action_mapping[event.key] == 'expert':
+                        elif action_mapping[event_key] == 'expert':
                             # Toggling the expert session - if i disable it - im just dropping all the data.. this is not the place, where i save something, this is just a toggle.
                             if (self.expert_gameplay_enabled):
                                 self.expert_gameplay_enabled = False
@@ -474,65 +501,78 @@ class SolsticeDQL:
                                 print(f"Starting the expert gameplay session.")
                                 game.RenderScreen(f"Starting the expert gameplay\nsession with =4 episodes", "wizard")
                         else:
-                            action = action_mapping[event.key]
+                            if(self.isEditor):
 
-                            # Execute the chosen action and record the result
-                            new_state, new_state_tensor, reward, is_terminated, is_truncated, _ = game.step(action)
-                            # Record the expert's action and the game's response
-                            if len(self.expert_gameplay) <= self.expert_gameplay_current_episode:
-                                self.expert_gameplay.append([])  # Initialize new episode
+                                action = action_mapping[event_key]
 
-                            properList = (
-                                state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated)
+                                # Execute the chosen action and record the result
+                                new_state, new_state_tensor, reward, is_terminated, is_truncated, _ = game.stepEditor(action, event)
 
-                            print(
-                                f"Adding state_tensor with shape {state_tensor.shape} >> {new_state_tensor.shape} to expert_gameplay memory. Level: {game.level_index}")
+                                state = new_state
+                                state_tensor = new_state_tensor
 
-                            self.expert_gameplay[self.expert_gameplay_current_episode].append(properList)
+                                print(
+                                    f"Action: {['Left', 'Down', 'Right', 'Up'][action]}, New State: {new_state}, Reward: {reward}")
+                            else:
+                                action = action_mapping[event_key]
 
-                            state = new_state
-                            state_tensor = new_state_tensor
+                                # Execute the chosen action and record the result
+                                new_state, new_state_tensor, reward, is_terminated, is_truncated, _ = game.step(action)
+                                # Record the expert's action and the game's response
+                                if len(self.expert_gameplay) <= self.expert_gameplay_current_episode:
+                                    self.expert_gameplay.append([])  # Initialize new episode
 
-                            print(
-                                f"Action: {['Left', 'Down', 'Right', 'Up'][action]}, New State: {new_state}, Reward: {reward}")
-                            if is_terminated:
+                                properList = (
+                                    state, state_tensor, action, new_state, new_state_tensor, reward, is_terminated)
 
-                                if (self.expert_gameplay_enabled):
-                                    self.expert_gameplay_current_episode += 1;
-                                    print("Expert training completed. " + str(
-                                        self.expert_gameplay_current_episode) + " from 4")
+                                print(
+                                    f"Adding state_tensor with shape {state_tensor.shape} >> {new_state_tensor.shape} to expert_gameplay memory. Level: {game.level_index}")
 
-                                if (self.expert_gameplay_enabled):
-                                    if (self.expert_gameplay_current_episode >= 4):
-                                        print(
-                                            f"Training the game with expert gameplay lenght.{len(self.expert_gameplay)}")
-                                        # TODO - something about the expert gameplay if i won - maybe start training with expertgameplay data?
-                                        if (disable_display_for_training):
-                                            game.DisableDisplay()
-                                        solsticeDQL.train(game, training_episodes)
-                                        # Inside, before starting training we will check, if there is something insdie expert gameplay, and use that as base knowledge data
-                                        game.EnableDisplay()
+                                self.expert_gameplay[self.expert_gameplay_current_episode].append(properList)
 
-                                        self.expert_gameplay_enabled = False;
-                                        self.expert_gameplay_current_episode = 0;
-                                        self.expert_gameplay = []
-                                        print("Continue ordinary gameplay after expert training")
-                                        is_terminated = False
-                                        state, state_tensor, info = game.reset();
+                                state = new_state
+                                state_tensor = new_state_tensor
+
+                                print(
+                                    f"Action: {['Left', 'Down', 'Right', 'Up'][action]}, New State: {new_state}, Reward: {reward}")
+                                if is_terminated:
+
+                                    if (self.expert_gameplay_enabled):
+                                        self.expert_gameplay_current_episode += 1;
+                                        print("Expert training completed. " + str(
+                                            self.expert_gameplay_current_episode) + " from 4")
+
+                                    if (self.expert_gameplay_enabled):
+                                        if (self.expert_gameplay_current_episode >= 4):
+                                            print(
+                                                f"Training the game with expert gameplay lenght.{len(self.expert_gameplay)}")
+                                            # TODO - something about the expert gameplay if i won - maybe start training with expertgameplay data?
+                                            if (disable_display_for_training):
+                                                game.DisableDisplay()
+                                            solsticeDQL.train(game, training_episodes)
+                                            # Inside, before starting training we will check, if there is something insdie expert gameplay, and use that as base knowledge data
+                                            game.EnableDisplay()
+
+                                            self.expert_gameplay_enabled = False;
+                                            self.expert_gameplay_current_episode = 0;
+                                            self.expert_gameplay = []
+                                            print("Continue ordinary gameplay after expert training")
+                                            is_terminated = False
+                                            state, state_tensor, info = game.reset();
+                                        else:
+                                            is_terminated = False
+                                            print("Continue expert gameplay")
+                                            state, state_tensor, info = game.reset();
+
                                     else:
-                                        is_terminated = False
-                                        print("Continue expert gameplay")
-                                        state, state_tensor, info = game.reset();
-
-                                else:
-                                    if reward >= 1:
-                                        state, state_tensor, info = game.Won();
-                                        is_terminated = False
-                                        self.prepareNewLevel();
-                                    else:
-                                        state, state_tensor, info = game.Lost();
-                                        is_terminated = False
-                                        self.prepareNewLevel();
+                                        if reward >= 1:
+                                            state, state_tensor, info = game.Won();
+                                            is_terminated = False
+                                            self.prepareNewLevel();
+                                        else:
+                                            state, state_tensor, info = game.Lost();
+                                            is_terminated = False
+                                            self.prepareNewLevel();
 
     def print_dqn(self, dqn, state_tensor):
         """
