@@ -265,6 +265,51 @@ class SolsticeGame:
 
         return self.state, state_tensor, reward, is_terminated, is_truncated, info
 
+    def change_level_dimensions(self, increaseY, increaseX):
+        # Convert the current state to row and column
+        current_row = self.state // self.level_width
+        current_col = self.state % self.level_width
+
+
+        # Adjust height (number of rows)
+        if increaseY != 0:
+            if increaseY > 0:
+                # Add rows at the bottom filled with '.'
+                for _ in range(abs(increaseY)):
+                    self.map_layout.append('.' * self.level_width)
+            else:
+                # Remove rows from the bottom
+                self.map_layout = self.map_layout[:increaseY]
+
+        # Adjust width (number of columns)
+        if increaseX != 0:
+            new_map_layout = []
+            for row in self.map_layout:
+                if increaseX > 0:
+                    # Extend each row with '.' to the right
+                    new_row = row + '.' * increaseX
+                else:
+                    # Shorten each row from the right
+                    new_row = row[:increaseX]
+                new_map_layout.append(new_row)
+            self.map_layout = new_map_layout
+
+        # Ensure player's row and column are within the new bounds
+        new_rows = len(self.map_layout)
+        new_cols = len(self.map_layout[0]) if self.map_layout else 0
+        current_row = min(current_row, new_rows - 1)  # Clamp row to new height
+        current_col = min(current_col, new_cols - 1)  # Clamp column to new width
+
+        # Convert back to state, taking into account the possibly new dimensions
+        self.state = current_row * new_cols + current_col
+
+
+        # Update level size and dimensions based on the new map layout
+        self.level_height = len(self.map_layout)
+        self.level_width = len(self.map_layout[0]) if self.map_layout else 0
+        self.level_size_for_hidden_layer = self.level_height * self.level_width * self.level_channels_count
+
+
     selected_tile_type = '.'
     def handle_mouse_click(self, x, y):
         print(f"Clicked on {x}x{y}")
@@ -276,6 +321,20 @@ class SolsticeGame:
                 self.selected_tile_type = tile_type  # Save selected tile type
                 print(f"selected_tile_type on {self.selected_tile_type}")
                 return
+
+            # Custom button click detection
+        if self.increaseH_button_rect.collidepoint(x, y):
+            # Increase level dimensions
+            self.change_level_dimensions(1,0)
+        elif self.decreaseH_button_rect.collidepoint(x, y):
+            # Decrease level dimensions
+            self.change_level_dimensions(-1,0)
+        elif self.increaseW_button_rect.collidepoint(x, y):
+            # Increase level dimensions
+            self.change_level_dimensions(0,1)
+        elif self.decreaseW_button_rect.collidepoint(x, y):
+            # Decrease level dimensions
+            self.change_level_dimensions(0,-1)
 
         # Convert screen coordinates to isometric grid coordinates
         # This is a simplified conversion and may need adjustment
@@ -293,12 +352,12 @@ class SolsticeGame:
     cursor_grid_x=-1;
     cursor_grid_y=-1;
     def handle_mouse_move(self, x, y):
-        print(f"Moved on {x}x{y}")
+        #print(f"Moved on {x}x{y}")
         # Convert screen coordinates to isometric grid coordinates
         # This is a simplified conversion and may need adjustment
         self.cursor_grid_x, self.cursor_grid_y = self.screen_to_iso(x, y)
 
-        print(f"moved grid_x on {self.cursor_grid_x}x{self.cursor_grid_y}")
+        #print(f"moved grid_x on {self.cursor_grid_x}x{self.cursor_grid_y}")
 
 
     def screen_to_iso(self, screen_x, screen_y):
@@ -412,6 +471,32 @@ class SolsticeGame:
                 self.tile_selection_h + outline_thickness * 2), outline_thickness)
             win.blit(scaled_image, position)
             self.tile_selection.append((tile_type, scaled_image, position))
+
+    def draw_custom_selection_area(self):
+        # Button dimensions and positions (placeholders)
+        button_width, button_height = 23, 21
+        increaseH_pos_x, increaseH_pos_y = 30, 540  # Increase button position
+        decreaseH_pos_x, decreaseH_pos_y = 60, 540  # Decrease button position
+
+        increaseW_pos_x, increaseW_pos_y = 660, 540  # Increase button position
+        decreaseW_pos_x, decreaseW_pos_y = 690, 540  # Decrease button position
+
+        # Load button images
+        increase_button = pygame.image.load('tiles/plus.png')
+        decrease_button = pygame.image.load('tiles/minus.png')
+
+        # Draw buttons
+        win.blit(increase_button, (increaseH_pos_x, increaseH_pos_y))
+        win.blit(decrease_button, (decreaseH_pos_x, decreaseH_pos_y))
+        # Draw buttons
+        win.blit(increase_button, (increaseW_pos_x, increaseW_pos_y))
+        win.blit(decrease_button, (decreaseW_pos_x, decreaseW_pos_y))
+
+        # Store button positions and sizes in attributes for click detection
+        self.increaseH_button_rect = pygame.Rect(increaseH_pos_x, increaseH_pos_y, button_width, button_height)
+        self.decreaseH_button_rect = pygame.Rect(decreaseH_pos_x, decreaseH_pos_y, button_width, button_height)
+        self.increaseW_button_rect = pygame.Rect(increaseW_pos_x, increaseW_pos_y, button_width, button_height)
+        self.decreaseW_button_rect = pygame.Rect(decreaseW_pos_x, decreaseW_pos_y, button_width, button_height)
 
     def stepEditor(self, action, event):
         # Simplified step function with directional movement.
@@ -818,7 +903,9 @@ class SolsticeGame:
 
         clock = pygame.time.Clock()
 
-        self.draw_tile_selection_area();
+        self.draw_tile_selection_area()
+        self.draw_custom_selection_area()
+
         if(buttonDown):
             if event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEMOTION:
                 x, y = pygame.mouse.get_pos()
@@ -835,6 +922,7 @@ class SolsticeGame:
         self.SetDescription(descr);
 
         self.draw_tile_selection_area();
+        self.draw_custom_selection_area()
 
 
         self.SetHeader();
