@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import pygame
 import torch
@@ -143,6 +144,21 @@ class SolsticeGame:
 
         # Destroy the Tkinter root window when done
         root.destroy()
+
+        # Construct the file path based on the current level index
+        file_path = os.path.join('levels', f'level_{self.level_index}.json')
+
+        # Convert the dictionary to a JSON-formatted string
+        level_json = json.dumps(level_data, indent=4)
+
+        try:
+            # Open the file for writing and save the JSON data
+            with open(file_path, 'w') as file:
+                file.write(level_json)
+            print(f"Level {self.level_index} has been saved to {file_path}.")
+        except IOError as e:
+            # Handle potential errors during file write operation
+            print(f"Error saving level {self.level_index}: {e}")
 
     def step(self, action):
         self.step_count = self.step_count + 1;
@@ -1107,7 +1123,8 @@ class SolsticeGame:
 
     def SetupLevel(self, level_index):
         self.level_index = level_index;
-        self.map_layout = self.load_map_layout(self.level_index)
+        self.map_layout_original = self.load_map_layout(self.level_index)
+        self.map_layout = self.map_layout_original.copy();
         self.used_channel_indices = self.GetUsedChannelIndexes()
         self.level_channels_count = len(
             self.used_channel_indices) + 1  # adding plus one for the player position on map.
@@ -1123,11 +1140,15 @@ class SolsticeGame:
         self.has_antidot = False
         self.key_count = 0
 
+    def PrepareEditorLevel(self):
+        self.map_layout = self.map_layout_original.copy();
+
     def SetupTestLevel(self):
         self.used_channel_indices = self.GetUsedChannelIndexes()
         self.level_channels_count = len(
             self.used_channel_indices) + 1  # adding plus one for the player position on map.
 
+        self.map_layout_original = self.map_layout.copy();
         self.level_size_for_hidden_layer = len(self.map_layout) * len(self.map_layout[0]) * self.level_channels_count;
         self.level_height = len(self.map_layout)
         self.level_width = len(self.map_layout[0])

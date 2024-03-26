@@ -430,6 +430,7 @@ class SolsticeDQL:
                             self.isEditor = not self.isEditor;
                             print(f"isEditor changed to {self.isEditor}.")
                             if(self.isEditor):
+                                game.PrepareEditorLevel();
                                 game.renderEditor(event, False)
                                 print(f"Opening editor for {game.level_index}")
                             else:
