@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import simpledialog
 import pyperclip
 
+from GameSettings import GameSettings
+
 
 class SolsticeGame:
     # Define each tile type's index in the channel dimension
@@ -34,17 +36,30 @@ class SolsticeGame:
         # Load the music file
         pygame.mixer.music.load("tiles/Audio.mp3")
         # Play the music
-        pygame.mixer.music.play()
+
+        self.game_settings = GameSettings()
+
+        # Example: toggling music based on settings
+        if self.game_settings.get_setting("music_enabled"):
+            pygame.mixer.music.play()
+        else:
+            pygame.mixer.music.stop()
+
         win_size = (737, 744)
         win = pygame.display.set_mode(win_size)
         pygame.display.set_caption("Solstice Play")
 
     def ToggleMusic(self):
-        if pygame.mixer.music.get_busy():
-            pygame.mixer.music.stop()
-        else:
+
+        current_status = self.game_settings.get_setting("music_enabled")
+        new_status = not current_status
+        self.game_settings.set_setting("music_enabled", new_status)
+
+        # Apply the new setting
+        if new_status:
             pygame.mixer.music.play()
-        pass
+        else:
+            pygame.mixer.music.stop()
 
     def action_space_sample(self):
         # Returns a random action from 0, 1, 2, 3
