@@ -393,6 +393,7 @@ class SolsticeDQL:
             pygame.K_PLUS: 'plus',
             pygame.K_EQUALS: 'plus',
             pygame.K_MINUS: 'minus',
+            pygame.K_i: 'isometric',
             pygame.K_h: 'toggle_display',
         }
 
@@ -402,9 +403,15 @@ class SolsticeDQL:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     is_terminated = True
+                elif event.type == pygame.MOUSEWHEEL:
+                    game.adjust_game_scale(event.y)
+                    game.render()  # Re-render the game with the new scale factor
+                    print(f"Scale factor changed to {game.game_scale}.")
                 elif event.type == pygame.MOUSEBUTTONUP:
                     self.buttonDown = False;
                 elif event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONDOWN:
+
+
                     if(event.type == pygame.MOUSEBUTTONDOWN):
                         self.buttonDown = True;
 
@@ -456,6 +463,10 @@ class SolsticeDQL:
                         elif action_mapping[event_key] == 'music':
                             game.ToggleMusic();
                             print(f"Toggle music")
+                        elif action_mapping[event_key] == 'isometric':
+                            game.toggle_render_mode();
+                            game.render()
+                            print(f"Toggle render: {game.render2D}")
                         elif action_mapping[event_key] == 'toggle_display':
                             disable_display_for_training = not disable_display_for_training;
                             print(f"Hidden training changed to {disable_display_for_training}.")

@@ -4,18 +4,25 @@ import os
 class GameSettings:
     def __init__(self, settings_file="game_settings.json"):
         self.settings_file = settings_file
+        # Define default settings as a class variable or inside __init__
+        self.default_settings = {
+            "music_enabled": True,
+            "render2D": True,
+            "game_scale": 2
+        }
         self.settings = self.load_settings()
 
     def load_settings(self):
         # Load settings from a file, or return default settings if file doesn't exist
         if os.path.exists(self.settings_file):
             with open(self.settings_file, "r") as file:
-                return json.load(file)
+                loaded_settings = json.load(file)
+                # Merge loaded settings with default settings
+                # Default settings will only be used if the corresponding key is missing in loaded_settings
+                return {**self.default_settings, **loaded_settings}
         else:
-            # Default settings
-            return {
-                "music_enabled": True
-            }
+            # Return default settings if the settings file does not exist
+            return self.default_settings
 
     def save_settings(self):
         # Save the current settings to a file
