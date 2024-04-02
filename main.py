@@ -408,17 +408,18 @@ class SolsticeDQL:
                     game.render()  # Re-render the game with the new scale factor
                     print(f"Scale factor changed to {game.game_scale}.")
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    self.buttonDown = False;
+                    if event.button == 1:  # 1 represents the left mouse button
+                        self.buttonDown = False;
                 elif event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONDOWN:
 
+                    if event.type == pygame.MOUSEMOTION or event.button == 1:  # 1 represents the left mouse button
+                        if(event.type == pygame.MOUSEBUTTONDOWN):
+                            self.buttonDown = True;
 
-                    if(event.type == pygame.MOUSEBUTTONDOWN):
-                        self.buttonDown = True;
 
-
-                    if (self.isEditor):
-                        game.renderEditor(event, self.buttonDown);
-                        #print(f"Action: {event.type}")
+                        if (self.isEditor):
+                            game.renderEditor(event, self.buttonDown);
+                            #print(f"Action: {event.type}")
 
                 elif event.type == pygame.KEYDOWN:
                     event_key = event.key

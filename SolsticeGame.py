@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import random
 import pygame
@@ -43,7 +44,7 @@ class SolsticeGame:
         self.render2D = self.game_settings.get_setting("render2D")
         self.game_scale = self.game_settings.get_setting("game_scale")
 
-        #//TODO - please make default render2D and game_scale also be saved in settings:
+        # //TODO - please make default render2D and game_scale also be saved in settings:
 
         # Example: toggling music based on settings
         if self.game_settings.get_setting("music_enabled"):
@@ -341,20 +342,27 @@ class SolsticeGame:
         if self.increaseH_button_rect.collidepoint(x, y):
             # Increase level dimensions
             self.change_level_dimensions(1, 0)
+            return
         elif self.decreaseH_button_rect.collidepoint(x, y):
             # Decrease level dimensions
             self.change_level_dimensions(-1, 0)
+            return
         elif self.increaseW_button_rect.collidepoint(x, y):
             # Increase level dimensions
             self.change_level_dimensions(0, 1)
+            return
         elif self.decreaseW_button_rect.collidepoint(x, y):
             # Decrease level dimensions
             self.change_level_dimensions(0, -1)
+            return
 
         # Convert screen coordinates to isometric grid coordinates
         # This is a simplified conversion and may need adjustment
         grid_x, grid_y = self.screen_to_iso(x, y)
 
+        offset_grid_row, offset_grid_col = self.getGridOffset2D();
+        grid_y-=offset_grid_row
+        grid_x-=offset_grid_col
         print(f"grid_x on {grid_x}x{grid_y}")
 
         if 0 <= grid_x < len(self.map_layout[0]) and 0 <= grid_y < len(self.map_layout):
@@ -378,10 +386,13 @@ class SolsticeGame:
     def screen_to_iso(self, screen_x, screen_y):
         global win, win_size
 
-
         if self.render2D:
+            #offset_grid_row, offset_grid_col = self.getGridOffset2D();
+            offset_grid_row, offset_grid_col = 0,0;
+
             start_offset_x, start_offset_y = 16, 82  # Adjust as needed
-            return int((screen_x - start_offset_x)/32/self.game_scale), int((screen_y - start_offset_y)/32/self.game_scale)
+            return int((screen_x - start_offset_x + offset_grid_row) / 32 / self.game_scale), int(
+                (screen_y - start_offset_y + offset_grid_col) / 32 / self.game_scale)
 
         # This conversion assumes a direct mapping and needs to be adjusted based on your isometric projection
         tile_width = 32
@@ -466,7 +477,10 @@ class SolsticeGame:
 
         # Load and draw each tile type
         for i, (tile_type, image_name) in enumerate(tile_types.items()):
-            image = pygame.image.load(f'tiles/{self.skin}/{image_name}.png')
+            if(self.render2D):
+                image = pygame.image.load(f'tiles/2d/{image_name}.png')
+            else:
+                image = pygame.image.load(f'tiles/{self.skin}/{image_name}.png')
             scaled_image = scale_and_crop_image(image, self.tile_selection_w,
                                                 self.tile_selection_h)  # Scale for selection area
 
@@ -759,7 +773,7 @@ class SolsticeGame:
 
         if self.render2D:
             char_skin = ('2d/char_dizzy' if self.is_dizzy else '2d/char')
-            skin="2d";
+            skin = "2d";
             cursor_skin = '2d'
 
         tiles = {
@@ -798,7 +812,6 @@ class SolsticeGame:
         }
         return tiles;
 
-
     def get_char_tile_type(self):
         # Determines the character tile based on the last action
         # This method should return 'CL', 'CB', 'CR', 'CT' depending on the character's direction
@@ -813,6 +826,31 @@ class SolsticeGame:
         else:
             return "CR"  # Default facing right if no action has been taken
 
+    def getGridOffset2D(self):
+        offset_grid_row, offset_grid_col=0,0;
+
+        grid_size_rows = len(self.map_layout)
+        grid_size_cols = len(self.map_layout[0])
+        # Calculate offset needed to center the character
+
+        if (grid_size_rows > 9 or grid_size_cols > 9 or True):
+            current_row = self.state // grid_size_cols
+            current_col = self.state % grid_size_cols
+
+            # Screen dimensions in tiles
+            viewport_tiles_x = 21/self.game_scale
+            viewport_tiles_y = 15/self.game_scale
+
+            # Calculate desired offset to center the character on screen
+            desired_offset_col = viewport_tiles_x // 2 - current_col
+            desired_offset_row = viewport_tiles_y // 2 - current_row
+
+            # Clamp the offsets to ensure the map edges align with screen edges when character is near the boundaries
+            offset_grid_col = int(max(min(desired_offset_col, 0), -(grid_size_cols - viewport_tiles_x)))
+            offset_grid_row = int(max(min(desired_offset_row, 0), -(grid_size_rows - viewport_tiles_y)))
+
+        return (offset_grid_row), (offset_grid_col);
+
     render2D = True;
 
     game_scale = 2;
@@ -821,11 +859,9 @@ class SolsticeGame:
         start_offset_x, start_offset_y = 16, 82  # Adjust as needed
         tile_size = 32 * self.game_scale
 
-        # Assuming LoadTiles and tiles are defined elsewhere and include 'CL', 'CB', 'CR', 'CT', and ','
         tiles = self.LoadTiles(self.game_scale)
 
         win.fill((0, 0, 0))  # Clear the screen
-
 
         map_layout = self.map_layout
         grid_size_rows = len(self.map_layout)
@@ -833,11 +869,16 @@ class SolsticeGame:
         current_row = self.state // grid_size_cols
         current_col = self.state % grid_size_cols
 
+        # Calculate offset needed to center the character
+        offset_grid_row, offset_grid_col = self.getGridOffset2D();
+
+
+
         for row_index, row in enumerate(self.map_layout):
             for col_index, tile_type in enumerate(row):
                 if tile_type in tiles:
-                    x = start_offset_x + col_index * tile_size
-                    y = start_offset_y + row_index * tile_size
+                    x = start_offset_x + (col_index + offset_grid_col) * tile_size
+                    y = start_offset_y + (row_index + offset_grid_row) * tile_size
 
                     if (self.NeedToDrawEmptyTileUnder(tile_type)):
                         win.blit(tiles['.'], (x, y))
@@ -851,17 +892,10 @@ class SolsticeGame:
                     if (self.IsOverTile(tile_type)):
                         win.blit(tiles[tile_type], (x, y))
 
-
-
-
-
-
-
-
         # Cursor drawing for 2D
         if self.cursor_grid_x >= 0 and self.cursor_grid_y >= 0:  # Check if cursor position is set
-            cursor_x = start_offset_x + self.cursor_grid_x * tile_size
-            cursor_y = start_offset_y + self.cursor_grid_y * tile_size
+            cursor_x = start_offset_x + (self.cursor_grid_x) * tile_size
+            cursor_y = start_offset_y + (self.cursor_grid_y) * tile_size
             win.blit(tiles[','], (cursor_x, cursor_y))  # Assuming ',' is your cursor tile
 
         frame_image = pygame.image.load('tiles/frame.png')
@@ -927,7 +961,6 @@ class SolsticeGame:
         offset_y = tile_height * 2 + tile_height * 3 + 160
 
         win.fill((0, 0, 0))  # Clear the screen
-
 
         def drawChar(row, col):
             tile_type = self.get_char_tile_type()
@@ -1303,7 +1336,7 @@ class SolsticeGame:
         return sorted_channel_indices
 
     def adjust_game_scale(self, y):
-        adjustment=0.2 * y
+        adjustment = 0.2 * y
         # Adjust game_scale within a reasonable range, for example, 0.5 to 4
         new_scale = min(max(self.game_scale + adjustment, 0.5), 4)
         self.game_scale = new_scale
