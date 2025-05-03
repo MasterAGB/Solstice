@@ -1,3 +1,5 @@
- {
-    "music_enabled": true
+{
+    "music_enabled": true,
+    "render2D": false,
+    "game_scale": 1.8
 }

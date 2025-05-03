@@ -39,6 +39,7 @@ Clone this repository to your local machine, ensure you have Python, PyTorch, an
 ```bash
 git clone https://github.com/MasterAGB/Solstice.git
 cd Solstice
+python -m venv .venv
 pip install -r requirements.txt
 python main.py
 ```
